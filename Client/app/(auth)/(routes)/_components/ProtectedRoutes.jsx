@@ -1,6 +1,6 @@
 import { useRouter } from "next/router"; // Import useRouter from Next.js for navigation
 import { jwtDecode } from "jwt-decode"; // JWT decode to check token expiration
-import api from "./api"; // Assuming api.js is your axios instance
+import api from "../../../../lib/api"; // Assuming api.js is your axios instance
 import { REFRESH_TOKEN, ACCESS_TOKEN } from "../constants"; // Import constants for tokens
 import { useState, useEffect } from "react";
 
