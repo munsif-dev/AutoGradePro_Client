@@ -7,13 +7,13 @@ import { useState, useEffect } from "react";
 
 function ProtectedRoute({ children }) {
   const [isAuthorized, setIsAuthorized] = useState(null); // State to track authorization status
-  const router = useRouter(); // Next.js router for navigation
+  // Next.js router for navigation
 
   // This will run when the component is mounted
   useEffect(() => {
     auth().catch(() => setIsAuthorized(false));
   }, []);
-
+  const router = useRouter();
   // Refresh token logic
   const refreshToken = async () => {
     const refreshToken = localStorage.getItem(REFRESH_TOKEN); // Get the refresh token from localStorage
@@ -27,10 +27,12 @@ function ProtectedRoute({ children }) {
         setIsAuthorized(true);
       } else {
         setIsAuthorized(false);
+        router.push("/sign-in");
       }
     } catch (error) {
       console.log(error);
       setIsAuthorized(false);
+      router.push("/sign-in");
     }
   };
 
@@ -39,11 +41,13 @@ function ProtectedRoute({ children }) {
     const token = localStorage.getItem(ACCESS_TOKEN);
     if (!token) {
       setIsAuthorized(false); // If no access token, redirect to login
+      router.push("/sign-in");
       return;
     }
 
     const decoded = jwtDecode(token); // Decode the JWT to check the expiration
     const tokenExpiration = decoded.exp;
+
     const now = Date.now() / 1000; // Get the current time in seconds
 
     if (tokenExpiration < now) {
@@ -59,7 +63,7 @@ function ProtectedRoute({ children }) {
   }
 
   // If authorized, render the children (protected content), otherwise redirect to login
-  return isAuthorized ? children : router.push("/sign-in");
+  return isAuthorized ? children : null;
 }
 
 export default ProtectedRoute;

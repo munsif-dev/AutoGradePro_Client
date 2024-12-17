@@ -6,7 +6,6 @@ import ProtectedRoute from "@/app/_components/ProtectedRoutes";
 const page = () => {
   return (
     <ProtectedRoute>
-      {" "}
       <div className="min-h-screen border-l-2 ml-2 p-6 flex-col justify-center">
         <h1 className="text-3xl font-bold mb-6 text-center text-dark-1">
           Start <strong className="text-light-2">Uploading</strong> your Files
