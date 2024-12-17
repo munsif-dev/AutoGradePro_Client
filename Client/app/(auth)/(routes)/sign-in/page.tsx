@@ -46,7 +46,7 @@ const SignInPage: React.FC = () => {
         localStorage.setItem(REFRESH_TOKEN, refresh);
 
         // Redirect to dashboard or home page
-        router.push("/grading");
+        router.push("/dashboard");
       }
     } catch (err) {
       setLoading(false);
