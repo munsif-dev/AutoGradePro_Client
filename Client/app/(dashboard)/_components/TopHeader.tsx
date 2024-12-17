@@ -32,7 +32,7 @@ const TopHeader = () => {
       {/* Logout Button */}
       <button
         onClick={handleLogout}
-        className="hidden md:block bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
+        className="hidden md:block px-4 py-2 bg-light-2 hover:bg-light-1 text-white rounded-full"
       >
         Logout
       </button>
