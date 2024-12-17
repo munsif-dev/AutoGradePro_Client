@@ -1,7 +1,5 @@
-import React from 'react'
+import React from "react";
 
 export const Grader = () => {
-  return (
-    <div>Controller</div>
-  )
-}
+  return <div>Controller</div>;
+};

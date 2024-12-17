@@ -1,7 +1,7 @@
 import axios from "axios"; //Axios simplifies making requests, handling responses, and managing errors.
 import { ACCESS_TOKEN } from "./constant";
 
-export const api = axios.create({
+const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_DJANGO_API_URL,
 });
 
@@ -17,3 +17,5 @@ api.interceptors.request.use(
     return Promise.reject(error);
   }
 );
+
+export default api;

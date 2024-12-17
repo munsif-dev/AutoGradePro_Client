@@ -1,7 +1,8 @@
-import { useRouter } from "next/router"; // Import useRouter from Next.js for navigation
+"use client";
+import { useRouter } from "next/navigation"; // Import useRouter from Next.js for navigation
 import { jwtDecode } from "jwt-decode"; // JWT decode to check token expiration
-import api from "../../../../lib/api"; // Assuming api.js is your axios instance
-import { REFRESH_TOKEN, ACCESS_TOKEN } from "../constants"; // Import constants for tokens
+import api from "@/lib/api"; // Assuming api.js is your axios instance
+import { REFRESH_TOKEN, ACCESS_TOKEN } from "@/lib/constant"; // Import constants for tokens
 import { useState, useEffect } from "react";
 
 function ProtectedRoute({ children }) {
@@ -58,7 +59,7 @@ function ProtectedRoute({ children }) {
   }
 
   // If authorized, render the children (protected content), otherwise redirect to login
-  return isAuthorized ? children : router.push("/login");
+  return isAuthorized ? children : router.push("/sign-in");
 }
 
 export default ProtectedRoute;

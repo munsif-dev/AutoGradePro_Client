@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import ProtectedRoute from "./_components/ProtectedRoutes";
 
 export const metadata: Metadata = {
   title: "AutoGradePro",
@@ -21,3 +22,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+// Root Layout does not need to be wrapped in a protected route, because all the login page and sign-in page are not protected, they need to be in public

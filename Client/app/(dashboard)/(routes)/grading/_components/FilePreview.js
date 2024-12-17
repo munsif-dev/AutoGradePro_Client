@@ -1,5 +1,5 @@
+"user client";
 import React from "react";
-import { X } from "lucide-react";
 
 export const FilePreview = ({ file, removeFile }) => {
   // Only render the component if the file exists
