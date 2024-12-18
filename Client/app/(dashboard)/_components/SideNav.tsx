@@ -19,7 +19,7 @@ const SideNav = () => {
     { id: 5, name: "Settings", icon: Settings, link: "/settings" },
   ];
 
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(1);
 
   return (
     <div className="">

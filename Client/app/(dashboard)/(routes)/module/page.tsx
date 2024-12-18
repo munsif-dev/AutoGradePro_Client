@@ -71,6 +71,7 @@ const ModulePage = () => {
                 <li
                   key={module.id}
                   className="flex items-center justify-between py-4"
+                  onClick={() => router.push(`/module/${module.id}`)} // Redirect to module details page
                 >
                   <div>
                     <h3 className="text-lg font-semibold text-dark-1">
