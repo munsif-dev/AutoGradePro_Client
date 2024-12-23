@@ -14,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="">
+      <body className="bg-purple-100">
         <main className="relative  bg-purple-100 overflow-hidden">
           {children}
         </main>

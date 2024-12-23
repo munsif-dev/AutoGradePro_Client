@@ -15,7 +15,7 @@ const TopHeader = () => {
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 ml- bg-white shadow-md">
+    <div className="fixed top-0 left-0 right-0 z-50 ml-[256px]  bg-purple-100">
       <div className="flex p-[21px] border-b justify-between items-center md:justify-end">
         <AlignJustify className="md:hidden" onClick={() => {}} />
         <div className="md:hidden flex items-center justify-center">
