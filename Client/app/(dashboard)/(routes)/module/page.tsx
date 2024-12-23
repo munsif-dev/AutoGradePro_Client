@@ -29,7 +29,7 @@ const ModulePage = () => {
 
   const deleteModule = (id: number) => {
     api
-      .delete(`/api/module/${id}/`)
+      .delete(`/api/module/delete/${id}/`)
       .then((res) => {
         if (res.status === 204) {
           alert("Module deleted successfully!");
@@ -43,52 +43,57 @@ const ModulePage = () => {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen border-l-2 ml-2 p-6 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-r p-8 flex flex-col">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-dark-1">
-            Manage <strong className="text-light-2">Modules</strong>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-extrabold text-dark-1 tracking-wide">
+            Manage <span className="text-light-2">Modules</span>
           </h1>
           <button
             onClick={() => router.push("/module/create")}
-            className="flex items-center gap-2 px-4 py-2 bg-light-2 hover:bg-light-1 text-white rounded-full"
+            className="flex items-center gap-3 px-6 py-3 bg-light-2 text-white rounded-full shadow-md hover:bg-light-1 transition ease-in-out duration-300 transform hover:scale-105"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-6 h-6" />
             Create Module
           </button>
         </div>
 
         {/* Module List */}
-        <div className="bg-white shadow-md rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-dark-1 mb-4">
+        <div className="bg-white shadow-lg rounded-2xl p-8">
+          <h2 className="text-2xl font-semibold text-dark-1 mb-6">
             Modules List
           </h2>
           {modules.length === 0 ? (
-            <p className="text-gray-500">No modules found. Create one above!</p>
+            <p className="text-gray-500 text-lg">
+              No modules found. Create one above!
+            </p>
           ) : (
-            <ul className="divide-y divide-gray-200">
+            <ul className="space-y-6">
               {modules.map((module) => (
                 <li
                   key={module.id}
-                  className="flex items-center justify-between py-4"
+                  className="flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg shadow-md cursor-pointer transform transition-transform hover:scale-105"
                   onClick={() => router.push(`/module/${module.id}`)} // Redirect to module details page
                 >
                   <div>
-                    <h3 className="text-lg font-semibold text-dark-1">
+                    <h3 className="text-xl font-semibold text-dark-1">
                       {module.name}
                     </h3>
                     <p className="text-sm text-gray-500">
                       <strong>Code:</strong> {module.code}
                     </p>
                     {module.description && (
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 mt-2">
                         {module.description}
                       </p>
                     )}
                   </div>
                   <button
-                    onClick={() => deleteModule(module.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-full text-sm"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering the click event on the list item
+                      deleteModule(module.id);
+                    }}
+                    className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-full text-sm shadow-md transition-all duration-300 transform hover:scale-105"
                   >
                     Delete
                   </button>
