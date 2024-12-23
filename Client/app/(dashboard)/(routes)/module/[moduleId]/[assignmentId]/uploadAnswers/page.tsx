@@ -19,7 +19,10 @@ const UploadAnswersPage = () => {
     }
 
     const formData = new FormData();
-    selectedFiles.forEach((file) => formData.append("files", file));
+    selectedFiles.forEach((file) => {
+      formData.append("files", file); // Add the file itself
+      formData.append("file_names", file.name); // Add the file name explicitly
+    });
 
     api
       .post(`api/submission/${assignmentId}/upload/`, formData, {
