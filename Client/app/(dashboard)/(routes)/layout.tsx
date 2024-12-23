@@ -15,7 +15,7 @@ const layout = ({ children }: MyComponentProps) => {
       </div>
       <div className="md:ml-64">
         <TopHeader />
-        {children}
+        <div className="mt-20">{children}</div>
       </div>
     </div>
   );
