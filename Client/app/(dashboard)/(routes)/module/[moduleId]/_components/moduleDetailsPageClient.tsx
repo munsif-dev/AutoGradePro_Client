@@ -50,7 +50,7 @@ const ModuleDetailsPageClient = ({ moduleId }: { moduleId: string }) => {
 
   const deleteAssignment = (id: number) => {
     api
-      .delete(`/api/assignment/${id}/`)
+      .delete(`/api/assignment/delete/${id}/`)
       .then((res) => {
         if (res.status === 204) {
           alert("Assignment deleted successfully!");
