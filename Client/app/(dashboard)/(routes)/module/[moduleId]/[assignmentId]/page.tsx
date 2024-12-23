@@ -15,10 +15,11 @@ interface AssignmentDetail {
 
 interface FileDetail {
   id: number;
-  file_name: string;
-  file_url: string;
+  assignment: number;
+  file: string; // URL of the file
+  file_name: string; // Name of the file
+  uploaded_at: string;
 }
-
 const AssignmentDetailPage = () => {
   const router = useRouter();
   const { moduleId, assignmentId } = useParams();
@@ -51,7 +52,7 @@ const AssignmentDetailPage = () => {
 
   const deleteFile = (fileId: number) => {
     api
-      .delete(`/api/assignment/${assignmentId}/delete-file/${fileId}/`)
+      .delete(`/api/submission/${assignmentId}/delete-file/${fileId}/`)
       .then((res) => {
         alert("File deleted successfully!");
         fetchUploadedFiles(); // Refresh uploaded files after deletion
@@ -90,7 +91,11 @@ const AssignmentDetailPage = () => {
               </button>
               <button
                 className="flex-1 px-4 py-3 bg-[#b3b3b3] text-gray-800 rounded-lg shadow hover:bg-[#999999] transition text-center"
-                onClick={() => console.log("Make Marking Scheme")}
+                onClick={() =>
+                  router.push(
+                    `/module/${moduleId}/${assignmentId}/markingScheme`
+                  )
+                }
               >
                 Make Marking Scheme
               </button>
@@ -127,13 +132,17 @@ const AssignmentDetailPage = () => {
                       className="flex justify-between items-center py-4 hover:bg-gray-100 rounded-lg transition"
                     >
                       <a
-                        href={file.file_url}
+                        href={file.file}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline"
                       >
-                        {file.file_name}
+                        {file.file_name} {/* Display the file name */}
                       </a>
+                      <span className="text-sm text-gray-500">
+                        Uploaded at:{" "}
+                        {new Date(file.uploaded_at).toLocaleString()}
+                      </span>
                       <button
                         onClick={() => deleteFile(file.id)}
                         className="bg-red-500 hover:bg-red-600 text-white py-1 px-4 rounded-full text-sm transition"
