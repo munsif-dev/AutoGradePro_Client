@@ -15,27 +15,29 @@ const TopHeader = () => {
   };
 
   return (
-    <div className="flex p-[21px] border-b justify-between items-center md:justify-end">
-      <AlignJustify className="md:hidden" onClick={() => {}} />
-      <div className="md:hidden flex items-center justify-center">
-        <Image
-          src="/Logo.png"
-          alt="Logo"
-          width={56} // corresponds to "w-14" in Tailwind (14 * 4 = 56)
-          height={56} // corresponds to "h-14" in Tailwind (14 * 4 = 56)
-        />
-        <div className="w-auto text-[#894799] text-lg font-extrabold font-['Montserrat']">
-          AutoGradePro
+    <div className="fixed top-0 left-0 right-0 z-50 ml- bg-white shadow-md">
+      <div className="flex p-[21px] border-b justify-between items-center md:justify-end">
+        <AlignJustify className="md:hidden" onClick={() => {}} />
+        <div className="md:hidden flex items-center justify-center">
+          <Image
+            src="/Logo.png"
+            alt="Logo"
+            width={56} // corresponds to "w-14" in Tailwind (14 * 4 = 56)
+            height={56} // corresponds to "h-14" in Tailwind (14 * 4 = 56)
+          />
+          <div className="w-auto text-[#894799] text-lg font-extrabold font-['Montserrat']">
+            AutoGradePro
+          </div>
         </div>
-      </div>
 
-      {/* Logout Button */}
-      <button
-        onClick={handleLogout}
-        className="hidden md:block px-4 py-2 bg-light-2 hover:bg-light-1 text-white rounded-full"
-      >
-        Logout
-      </button>
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          className="hidden md:block px-4 py-2 bg-light-2 hover:bg-light-1 text-white rounded-full"
+        >
+          Logout
+        </button>
+      </div>
     </div>
   );
 };
