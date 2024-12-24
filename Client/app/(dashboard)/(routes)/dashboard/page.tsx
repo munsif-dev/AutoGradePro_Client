@@ -191,41 +191,36 @@ const Dashboard = () => {
         </div>
 
         {/* Trend Graphs */}
-        <div className="space-y-6">
+
+        <div className="space-y-6 space-x-0 mb-8">
           <h2 className="text-2xl font-semibold text-center text-dark-1">
             Performance Trends
           </h2>
 
-          <div className="bg-white p-6 rounded-lg shadow-xl">
-            <h3 className="text-xl font-semibold text-dark-1 mb-4">
-              Modules Created Trend
-            </h3>
-            <Line data={moduleChartData} options={lineChartOptions} />
+          {/* First Two Trends in One Line */}
+          <div className="flex gap-6">
+            <div className="bg-white p-6 rounded-lg shadow-xl w-1/2">
+              <h3 className="text-xl font-semibold text-dark-1 mb-4">
+                Modules Created Trend
+              </h3>
+              <Line data={moduleChartData} options={lineChartOptions} />
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-xl w-1/2">
+              <h3 className="text-xl font-semibold text-dark-1 mb-4">
+                Assignments Created Trend
+              </h3>
+              <Line data={assignmentChartData} options={lineChartOptions} />
+            </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-xl">
-            <h3 className="text-xl font-semibold text-dark-1 mb-4">
-              Assignments Created Trend
-            </h3>
-            <Line data={assignmentChartData} options={lineChartOptions} />
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-xl">
+          {/* Last Trend in a Larger Line */}
+          <div className="bg-white p-6 rounded-lg shadow-xl w-full">
             <h3 className="text-xl font-semibold text-dark-1 mb-4">
               Files Uploaded Trend
             </h3>
             <Line data={uploadChartData} options={lineChartOptions} />
           </div>
-        </div>
-
-        {/* Additional Actions */}
-        <div className="space-y-4 text-center">
-          <button className="mt-4 px-6 py-3 bg-light-3 hover:bg-light-2 text-white rounded-full">
-            Add New Assignment
-          </button>
-          <button className="mt-4 px-6 py-3 bg-light-3 hover:bg-light-2 text-white rounded-full">
-            View All Modules
-          </button>
         </div>
       </div>
     </ProtectedRoute>
