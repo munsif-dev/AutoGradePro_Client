@@ -34,9 +34,14 @@ const Dashboard = () => {
     files_uploaded: 0,
     submissions_received: 0,
   });
-  const [moduleTrends, setModuleTrends] = useState([]);
-  const [assignmentTrends, setAssignmentTrends] = useState([]);
-  const [uploadTrends, setUploadTrends] = useState([]);
+  interface Trend {
+    month: string;
+    count: number;
+  }
+
+  const [moduleTrends, setModuleTrends] = useState<Trend[]>([]);
+  const [assignmentTrends, setAssignmentTrends] = useState<Trend[]>([]);
+  const [uploadTrends, setUploadTrends] = useState<Trend[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -78,7 +83,7 @@ const Dashboard = () => {
         },
       },
       legend: {
-        position: "top",
+        position: "top" as const,
       },
     },
     scales: {
