@@ -1,8 +1,6 @@
-// app/module/[moduleId]/assignment/[assignmentId]/uploadAnswers.tsx
-
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import api from "@/lib/api";
 import ProtectedRoute from "@/app/_components/ProtectedRoutes";
@@ -11,6 +9,25 @@ const UploadAnswersPage = () => {
   const router = useRouter();
   const { moduleId, assignmentId } = useParams();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleFileDrop = (files: FileList) => {
+    const newFiles = Array.from(files);
+    setSelectedFiles((prev) => {
+      const updatedFiles = [...prev];
+      newFiles.forEach((newFile) => {
+        const existingIndex = updatedFiles.findIndex(
+          (file) => file.name === newFile.name
+        );
+        if (existingIndex !== -1) {
+          updatedFiles[existingIndex] = newFile; // Replace existing file
+        } else {
+          updatedFiles.push(newFile); // Add new file
+        }
+      });
+      return updatedFiles;
+    });
+  };
 
   const handleFileUpload = () => {
     if (selectedFiles.length === 0) {
@@ -20,17 +37,17 @@ const UploadAnswersPage = () => {
 
     const formData = new FormData();
     selectedFiles.forEach((file) => {
-      formData.append("files", file); // Add the file itself
-      formData.append("file_names", file.name); // Add the file name explicitly
+      formData.append("files", file);
+      formData.append("file_names", file.name);
     });
 
     api
-      .post(`api/submission/${assignmentId}/upload/`, formData, {
+      .post(`/api/submission/${assignmentId}/upload/`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       })
-      .then((res) => {
+      .then(() => {
         alert("Files uploaded successfully!");
-        setSelectedFiles([]); // Clear selected files after successful upload
+        setSelectedFiles([]);
         router.push(`/module/${moduleId}/${assignmentId}`);
       })
       .catch((err) => alert("Failed to upload files: " + err));
@@ -43,78 +60,110 @@ const UploadAnswersPage = () => {
   return (
     <ProtectedRoute>
       <div className="min-h-screen p-6">
-        <h1 className="text-4xl font-bold text-dark-1 mb-4">Upload Answers</h1>
+        <h1 className="text-4xl font-bold text-custom-purple mb-4">
+          Upload Answers
+        </h1>
 
-        {/* File Upload Section */}
-        <div className="mt-6">
-          <h2 className="text-2xl font-semibold text-dark-1 mb-4">
-            Upload Files
-          </h2>
-          <input
-            type="file"
-            multiple
-            onChange={(e) => {
-              if (e.target.files) {
-                const newFiles = Array.from(e.target.files);
-                setSelectedFiles((prev) => {
-                  const updatedFiles = [...prev];
-                  newFiles.forEach((newFile) => {
-                    const existingIndex = updatedFiles.findIndex(
-                      (file) => file.name === newFile.name
-                    );
-                    if (existingIndex !== -1) {
-                      // Replace the existing file
-                      updatedFiles[existingIndex] = newFile;
-                    } else {
-                      // Add new file
-                      updatedFiles.push(newFile);
-                    }
-                  });
-                  return updatedFiles;
-                });
-              }
-            }}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
-          />
-
-          {selectedFiles.length > 0 && (
-            <div className="mt-4">
-              <h3 className="text-xl font-semibold text-gray-700 mb-2 flex items-center justify-between">
-                Files Selected for Upload:
-                <button
-                  onClick={handleFileUpload}
-                  className="hidden md:block px-6 py-3 text-sm bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-full shadow-lg transform transition duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
-                >
-                  Upload All
-                </button>
-              </h3>
-
-              <ul className="divide-y divide-gray-200 bg-white shadow-md rounded-lg">
-                {selectedFiles.map((file, index) => (
-                  <li
-                    key={index}
-                    className="flex justify-between items-center py-3 px-4 hover:bg-blue-50 rounded-lg transition-all duration-200 ease-in-out"
-                  >
-                    <div className="flex items-center">
-                      <span className="text-gray-800 font-medium">
-                        {file.name}
-                      </span>
-                      <span className="ml-4 text-sm text-gray-500">
-                        ({(file.size / 1024).toFixed(2)} KB)
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => removeFileFromSelection(index)}
-                      className="bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-full text-sm shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2"
-                    >
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        {/* Enhanced Drag-and-Drop Section */}
+        <div
+          className={`relative p-8 rounded-lg shadow-lg border-4 ${
+            isDragging
+              ? "border-light-1 bg-light-3"
+              : "border-light-2 bg-gray-50"
+          } transition-all duration-300 ease-in-out cursor-pointer hover:shadow-xl hover:bg-light-3 group`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            if (e.dataTransfer.files) {
+              handleFileDrop(e.dataTransfer.files);
+            }
+          }}
+          onClick={() => document.getElementById("file-input")?.click()}
+        >
+          <div className="text-center">
+            <svg
+              className="mx-auto w-16 h-16 text-light-2 group-hover:text-custom-purple transition-colors duration-300"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            <p className="text-lg font-medium text-light-2 group-hover:text-custom-purple transition-colors duration-300">
+              Drag and drop files here or click to upload
+            </p>
+            <p className="text-sm text-gray-400">
+              Supported formats: PDF, DOCX, PNG, JPG
+            </p>
+          </div>
         </div>
+
+        {/* Hidden File Input */}
+        <input
+          id="file-input"
+          type="file"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files) {
+              handleFileDrop(e.target.files);
+            }
+          }}
+        />
+
+        {selectedFiles.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-xl font-semibold text-light-2 mb-2">
+              Files Selected for Upload:
+            </h3>
+
+            <ul className="divide-y divide-gray-200 bg-white shadow-md rounded-lg">
+              {selectedFiles.map((file, index) => (
+                <li
+                  key={index}
+                  className="flex justify-between items-center py-3 px-4 hover:bg-light-3 rounded-lg transition-all duration-200 ease-in-out"
+                >
+                  <div className="flex items-center">
+                    <span className="text-light-2 font-medium">
+                      {file.name}
+                    </span>
+                    <span className="ml-4 text-sm text-gray-500">
+                      ({(file.size / 1024).toFixed(2)} KB)
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => removeFileFromSelection(index)}
+                    className="bg-custom-purple hover:bg-light-1 text-white py-1 px-3 rounded-full text-sm shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-light-1 focus:ring-offset-2"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {selectedFiles.length > 0 && (
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={handleFileUpload}
+              className="px-6 py-3 text-sm bg-gradient-to-r from-custom-purple to-light-1 hover:from-light-2 hover:to-light-1 text-white font-semibold rounded-full shadow-lg transform transition duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-light-2 focus:ring-offset-2"
+            >
+              Upload All
+            </button>
+          </div>
+        )}
       </div>
     </ProtectedRoute>
   );

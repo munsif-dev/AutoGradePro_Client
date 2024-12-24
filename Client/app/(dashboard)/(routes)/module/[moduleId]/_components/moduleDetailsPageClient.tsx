@@ -100,7 +100,7 @@ const ModuleDetailsPageClient = ({ moduleId }: { moduleId: string }) => {
                   assignments.map((assignment) => (
                     <li
                       key={assignment.id}
-                      className="flex justify-between items-center py-4 hover:bg-gray-100 rounded-lg transition cursor-pointer"
+                      className="flex justify-between items-center p-4 hover:bg-gray-100 rounded-lg transition cursor-pointer"
                       onClick={() =>
                         router.push(`/module/${moduleId}/${assignment.id}`)
                       } // Navigate to specific assignment page

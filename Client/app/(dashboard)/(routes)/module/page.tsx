@@ -72,7 +72,7 @@ const ModulePage = () => {
               {modules.map((module) => (
                 <li
                   key={module.id}
-                  className="flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg shadow-md cursor-pointer transform transition-transform hover:scale-105"
+                  className="flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg shadow-md cursor-pointer transform transition-transform hover:scale-102"
                   onClick={() => router.push(`/module/${module.id}`)} // Redirect to module details page
                 >
                   <div>
