@@ -23,13 +23,13 @@ const SideNav = () => {
 
   return (
     <div className="">
-      <div className="p-[10px] border-b flex justify-center items-center rounded-lg mb-3">
+      <div className="p-[10px] border-b flex justify-center items-center bg-purple-200  mb-3">
         <Link href="/" className="flex items-center justify-center">
           <Image
             src="/Logo.png"
             alt="Logo"
-            width={56} // corresponds to "w-14" in Tailwind (14 * 4 = 56)
-            height={56} // corresponds to "h-14" in Tailwind (14 * 4 = 56)
+            width={53} // corresponds to "w-14" in Tailwind (14 * 4 = 56)
+            height={53} // corresponds to "h-14" in Tailwind (14 * 4 = 56)
           />
           <div className="w-auto text-[#894799] text-lg font-extrabold font-['Montserrat']">
             AutoGradePro

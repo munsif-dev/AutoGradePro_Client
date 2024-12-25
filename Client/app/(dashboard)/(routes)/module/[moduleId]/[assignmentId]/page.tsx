@@ -19,6 +19,7 @@ interface FileDetail {
   file: string; // URL of the file
   file_name: string; // Name of the file
   uploaded_at: string;
+  score?: number; // Score of the file, optional
 }
 const AssignmentDetailPage = () => {
   const router = useRouter();
@@ -59,7 +60,27 @@ const AssignmentDetailPage = () => {
       })
       .catch((err) => alert("Failed to delete file: " + err));
   };
+  const gradeSubmissions = () => {
+    console.log("Grading submissions for assignment ID:", assignmentId);
 
+    if (!assignmentId) return;
+
+    api
+      .put(`/api/submission/${assignmentId}/grade/`)
+      .then((res) => {
+        const updatedScores = res.data; // Contains only the scores
+        setUploadedFiles((prevFiles) =>
+          prevFiles.map((file) => {
+            const updatedScore = updatedScores.find(
+              (scoreObj: { id: number }) => scoreObj.id === file.id
+            );
+            return updatedScore ? { ...file, score: updatedScore.score } : file;
+          })
+        );
+        alert("Grading completed successfully!");
+      })
+      .catch((err) => alert("Failed to grade submissions: " + err));
+  };
   return (
     <ProtectedRoute>
       <div className="min-h-screen p-6">
@@ -101,7 +122,7 @@ const AssignmentDetailPage = () => {
               </button>
               <button
                 className="flex-1 px-4 py-3 bg-[#a6f1c7] text-gray-800 rounded-lg shadow hover:bg-[#8ae3ab] transition text-center"
-                onClick={() => console.log("Grade")}
+                onClick={gradeSubmissions}
               >
                 Grade
               </button>
@@ -142,6 +163,10 @@ const AssignmentDetailPage = () => {
                       <span className="text-sm text-gray-500">
                         Uploaded at:{" "}
                         {new Date(file.uploaded_at).toLocaleString()}
+                      </span>
+                      <span className="text-sm text-green-600 font-semibold">
+                        Score:{" "}
+                        {file.score !== undefined ? file.score : "Not graded"}
                       </span>
                       <button
                         onClick={() => deleteFile(file.id)}
