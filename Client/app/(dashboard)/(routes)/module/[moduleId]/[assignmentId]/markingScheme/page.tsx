@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import api from "@/lib/api";
 import { useParams } from "next/navigation";
+import BackButton from "@/app/(dashboard)/_components/BackButton";
 
 interface AnswerRow {
   id?: number; // Add an optional id field for existing answers
@@ -138,73 +139,78 @@ const MarkingSchemeForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-r p-8 flex flex-col items-center">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-extrabold text-dark-1 ">
-          Edit <span className="text-light-2">Marking Scheme</span>
-        </h1>
+    <>
+      <div className="flex gap-4 items-center m-4">
+        <BackButton /> {/* Add the back button here */}
       </div>
+      <div className="min-h-screen bg-gradient-to-r p-8 flex flex-col items-center">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-extrabold text-dark-1 ">
+            Edit <span className="text-light-2">Marking Scheme</span>
+          </h1>
+        </div>
 
-      {/* Form */}
-      <div className="bg-white shadow-lg rounded-2xl p-8 w-3/4 mx-auto m-2">
-        <h2 className="text-2xl font-semibold text-center text-dark-1 mb-6">
-          {`Marking Scheme: ${title || "Loading..."}`}
-        </h2>
+        {/* Form */}
+        <div className="bg-white shadow-lg rounded-2xl p-8 w-3/4 mx-auto m-2">
+          <h2 className="text-2xl font-semibold text-center text-dark-1 mb-6">
+            {`Marking Scheme: ${title || "Loading..."}`}
+          </h2>
 
-        {rows.map((row, index) => (
-          <div
-            key={index}
-            className="flex justify-center items-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg shadow-md mb-4 transform transition-transform hover:scale-101"
-          >
-            <span className="text-lg font-medium text-dark-1">
-              {row.number}.
-            </span>
-            <input
-              type="text"
-              value={row.answer}
-              onChange={(e) => handleChange(index, "answer", e.target.value)}
-              placeholder="Enter Answer"
-              className="w-80 border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-light-2 placeholder-gray-400 text-sm m-4"
-            />
-            <input
-              type="number"
-              value={row.marks}
-              onChange={(e) => handleChange(index, "marks", e.target.value)}
-              placeholder="Marks"
-              className="w-20 border border-gray-300 rounded-md px-2 py-2 focus:outline-none focus:ring-2 focus:ring-light-2 placeholder-gray-400 text-sm m-4 ml-1"
-            />
-            <div className="flex space-x-2">
-              <button
-                type="button"
-                onClick={() => addRow(index)}
-                className="bg-light-2 text-white py-2 px-4 rounded-full shadow-md hover:bg-light-1 transition-all duration-300 transform hover:scale-105 text-sm"
-              >
-                +
-              </button>
-              {rows.length > 1 && (
+          {rows.map((row, index) => (
+            <div
+              key={index}
+              className="flex justify-center items-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg shadow-md mb-4 transform transition-transform hover:scale-101"
+            >
+              <span className="text-lg font-medium text-dark-1">
+                {row.number}.
+              </span>
+              <input
+                type="text"
+                value={row.answer}
+                onChange={(e) => handleChange(index, "answer", e.target.value)}
+                placeholder="Enter Answer"
+                className="w-80 border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-light-2 placeholder-gray-400 text-sm m-4"
+              />
+              <input
+                type="number"
+                value={row.marks}
+                onChange={(e) => handleChange(index, "marks", e.target.value)}
+                placeholder="Marks"
+                className="w-20 border border-gray-300 rounded-md px-2 py-2 focus:outline-none focus:ring-2 focus:ring-light-2 placeholder-gray-400 text-sm m-4 ml-1"
+              />
+              <div className="flex space-x-2">
                 <button
                   type="button"
-                  onClick={() => deleteRow(index)}
-                  className="bg-red-500 text-white py-2 px-4 rounded-full shadow-md hover:bg-red-600 transition-all duration-300 transform hover:scale-105 text-sm"
+                  onClick={() => addRow(index)}
+                  className="bg-light-2 text-white py-2 px-4 rounded-full shadow-md hover:bg-light-1 transition-all duration-300 transform hover:scale-105 text-sm"
                 >
-                  -
+                  +
                 </button>
-              )}
+                {rows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => deleteRow(index)}
+                    className="bg-red-500 text-white py-2 px-4 rounded-full shadow-md hover:bg-red-600 transition-all duration-300 transform hover:scale-105 text-sm"
+                  >
+                    -
+                  </button>
+                )}
+              </div>
             </div>
+          ))}
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              onClick={handleSubmit}
+              className="flex items-center text-center gap-3 px-6 py-3 bg-light-2 text-white rounded-full shadow-md hover:bg-light-1 transition ease-in-out duration-300 transform hover:scale-105"
+            >
+              Save Changes
+            </button>
           </div>
-        ))}
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            onClick={handleSubmit}
-            className="flex items-center text-center gap-3 px-6 py-3 bg-light-2 text-white rounded-full shadow-md hover:bg-light-1 transition ease-in-out duration-300 transform hover:scale-105"
-          >
-            Save Changes
-          </button>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

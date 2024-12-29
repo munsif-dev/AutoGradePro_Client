@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import api from "@/lib/api";
 import ProtectedRoute from "@/app/_components/ProtectedRoutes";
+import BackButton from "@/app/(dashboard)/_components/BackButton";
 
 const UploadAnswersPage = () => {
   const router = useRouter();
@@ -59,6 +60,9 @@ const UploadAnswersPage = () => {
 
   return (
     <ProtectedRoute>
+      <div className="flex gap-4 items-center m-4">
+        <BackButton /> {/* Add the back button here */}
+      </div>
       <div className="min-h-screen p-6">
         <h1 className="text-4xl font-bold text-custom-purple mb-4">
           Upload Answers

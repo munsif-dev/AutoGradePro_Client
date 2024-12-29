@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import ProtectedRoute from "@/app/_components/ProtectedRoutes";
 import { Plus } from "lucide-react";
+import BackButton from "@/app/(dashboard)/_components/BackButton";
 
 interface Assignment {
   id: number;
@@ -67,6 +68,9 @@ const ModuleDetailsPageClient = ({ moduleId }: { moduleId: string }) => {
 
   return (
     <ProtectedRoute>
+      <div className="flex gap-4 items-center m-4">
+        <BackButton /> {/* Add the back button here */}
+      </div>
       <div className="min-h-screen p-6">
         {/* Module Header */}
         {module && (
