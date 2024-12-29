@@ -46,7 +46,7 @@ const AssignmentDetailPage = () => {
   const fetchUploadedFiles = () => {
     if (!assignmentId) return;
     api
-      .get(`/api/submission/${assignmentId}/files/`) // Using the URL to get files for the assignment
+      .get(`/api/submission/${assignmentId}/files/`)
       .then((res) => setUploadedFiles(res.data))
       .catch((err) => alert("Failed to fetch uploaded files: " + err));
   };
@@ -60,6 +60,7 @@ const AssignmentDetailPage = () => {
       })
       .catch((err) => alert("Failed to delete file: " + err));
   };
+
   const gradeSubmissions = () => {
     console.log("Grading submissions for assignment ID:", assignmentId);
 
@@ -81,6 +82,7 @@ const AssignmentDetailPage = () => {
       })
       .catch((err) => alert("Failed to grade submissions: " + err));
   };
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen p-6">
@@ -146,37 +148,70 @@ const AssignmentDetailPage = () => {
                 Uploaded Files
               </h2>
               {uploadedFiles.length > 0 ? (
-                <ul className="divide-y divide-gray-200">
-                  {uploadedFiles.map((file) => (
-                    <li
-                      key={file.id}
-                      className="flex justify-between items-center py-4 hover:bg-gray-100 rounded-lg transition"
-                    >
-                      <a
-                        href={file.file}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
-                      >
-                        {file.file_name} {/* Display the file name */}
-                      </a>
-                      <span className="text-sm text-gray-500">
-                        Uploaded at:{" "}
-                        {new Date(file.uploaded_at).toLocaleString()}
-                      </span>
-                      <span className="text-sm text-green-600 font-semibold">
-                        Score:{" "}
-                        {file.score !== undefined ? file.score : "Not graded"}
-                      </span>
-                      <button
-                        onClick={() => deleteFile(file.id)}
-                        className="bg-red-500 hover:bg-red-600 text-white py-1 px-4 rounded-full text-sm transition"
-                      >
-                        Delete
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 bg-white shadow-md rounded-lg">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          File Name
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Uploaded At
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Score
+                        </th>
+                        <th scope="col" className="relative px-6 py-3">
+                          <span className="sr-only">Delete</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {uploadedFiles.map((file) => (
+                        <tr
+                          key={file.id}
+                          className="hover:bg-gray-100 transition"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <a
+                              href={file.file}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              {file.file_name}
+                            </a>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(file.uploaded_at).toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold">
+                            {file.score !== undefined
+                              ? file.score
+                              : "Not graded"}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => deleteFile(file.id)}
+                              className="bg-red-500 hover:bg-red-600 text-white py-1 px-4 rounded-full text-sm transition"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
                 <p className="text-sm text-gray-500 text-center py-4">
                   No files uploaded yet.
