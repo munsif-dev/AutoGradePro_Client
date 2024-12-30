@@ -21,7 +21,7 @@ const TopHeader = () => {
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 ml-[256px] bg-purple-200   ">
+    <div className="fixed top-0 left-0 right-0 z-50 md:ml-[256px] bg-purple-200   ">
       <div className="flex p-4 border-b justify-between items-center md:justify-end">
         {/* Sidebar Toggle (Visible on Mobile) */}
         <AlignJustify className="md:hidden text-dark-1 cursor-pointer hover:text-light-2" />
