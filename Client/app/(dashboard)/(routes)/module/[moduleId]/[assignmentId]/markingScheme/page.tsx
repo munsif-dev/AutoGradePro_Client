@@ -11,12 +11,10 @@ interface AnswerRow {
   marks: string;
   caseSensitive: boolean;
   orderSensitive: boolean;
-  gradingType:
-    | "single-word"
-    | "short-phrase"
-    | "unordered-list"
-    | "ordered-list"
-    | "numeric";
+  rangeSensitive: boolean;
+  gradingType: "one-word" | "short-phrase" | "list" | "numerical";
+  useRange?: boolean; // New field for numerical answers
+  range?: { min: number; max: number }; // Only for numerical answers
 }
 
 const MarkingSchemeForm: React.FC = () => {
@@ -27,12 +25,14 @@ const MarkingSchemeForm: React.FC = () => {
       marks: "",
       caseSensitive: false,
       orderSensitive: false,
-      gradingType: "single-word",
+      rangeSensitive: false,
+      gradingType: "one-word",
     },
   ]);
   const [title, setTitle] = useState<string>("");
   const { assignmentId } = useParams();
   const [markingSchemeId, setMarkingSchemeId] = useState<number | null>(null);
+  const [passScore, setPassScore] = useState<number>(0); // New state for pass score
 
   const fetchMarkingScheme = async () => {
     if (!assignmentId) return;
@@ -41,10 +41,11 @@ const MarkingSchemeForm: React.FC = () => {
       const response = await api.get(
         `/api/assignment/${assignmentId}/marking-scheme/detail/`
       );
-      const { id, title, answers } = response.data;
+      const { id, title, answers, pass_score } = response.data;
 
       setMarkingSchemeId(id);
       setTitle(title);
+      setPassScore(pass_score || 40);
       if (answers && answers.length > 0) {
         const formattedAnswers = answers.map((answer: any, index: number) => ({
           id: answer.id,
@@ -53,7 +54,10 @@ const MarkingSchemeForm: React.FC = () => {
           marks: answer.marks.toString(),
           caseSensitive: answer.case_sensitive || false,
           orderSensitive: answer.order_sensitive || false,
-          gradingType: answer.grading_type || "single-word",
+          rangeSensitive: answer.range_sensitive || false,
+          gradingType: answer.grading_type || "one-word",
+          useRange: answer.use_range || false,
+          range: answer.range || { min: 0, max: 0 },
         }));
         setRows(formattedAnswers);
       }
@@ -76,6 +80,25 @@ const MarkingSchemeForm: React.FC = () => {
       ...updatedRows[index],
       [field]: value,
     };
+
+    // Enforce logic based on gradingType
+    const gradingType = updatedRows[index].gradingType;
+    if (gradingType === "one-word" || gradingType === "short-phrase") {
+      updatedRows[index].orderSensitive = false;
+      updatedRows[index].rangeSensitive = false;
+    } else if (gradingType === "list") {
+      updatedRows[index].rangeSensitive = false;
+    } else if (gradingType === "numerical") {
+      updatedRows[index].caseSensitive = false;
+      updatedRows[index].orderSensitive = false;
+      updatedRows[index].rangeSensitive = true;
+
+      // Reset range if `useRange` is false
+      if (!updatedRows[index].useRange) {
+        updatedRows[index].range = { min: 0, max: 0 };
+      }
+    }
+
     setRows(updatedRows);
   };
 
@@ -87,7 +110,8 @@ const MarkingSchemeForm: React.FC = () => {
       marks: "",
       caseSensitive: false,
       orderSensitive: false,
-      gradingType: "single-word",
+      rangeSensitive: false,
+      gradingType: "one-word",
     };
     const updatedRows = [
       ...rows.slice(0, index + 1),
@@ -117,13 +141,17 @@ const MarkingSchemeForm: React.FC = () => {
 
     const markingSchemeData = {
       assignment: assignmentId,
+      pass_score: passScore,
       answers: rows.map((row) => ({
         id: row.id,
         answer_text: row.answer,
         marks: parseInt(row.marks, 10),
         case_sensitive: row.caseSensitive,
         order_sensitive: row.orderSensitive,
+        range_sensitive: row.rangeSensitive,
         grading_type: row.gradingType,
+        use_range: row.useRange || false,
+        range: row.range,
       })),
     };
 
@@ -152,107 +180,237 @@ const MarkingSchemeForm: React.FC = () => {
   };
 
   return (
-    <>
+    <div className="w-full">
       <div className="flex gap-4 items-center m-4">
         <BackButton />
       </div>
-      <div className="min-h-screen bg-gradient-to-r p-8 flex flex-col items-center">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-extrabold text-dark-1 ">
+      <div className="bg-gradient-to-r p-6 flex flex-col items-center w-full">
+        <div className="flex justify-center items-center mb-6 w-full">
+          <h1 className="text-4xl font-extrabold text-dark-1">
             Edit <span className="text-light-2">Marking Scheme</span>
           </h1>
         </div>
-        <div className="bg-white shadow-lg rounded-2xl p-8 w-3/4 mx-auto m-2">
-          <h2 className="text-2xl font-semibold text-center text-dark-1 mb-6">
+        <div className="bg-white shadow-xl rounded-2xl p-6 w-full md:w-4/5 mx-auto m-2">
+          <h2 className="text-2xl font-semibold text-center text-dark-1 mb-4">
             {`Marking Scheme: ${title || "Loading..."}`}
           </h2>
+
+          {/* Loop through rows */}
           {rows.map((row, index) => (
             <div
               key={index}
-              className="flex flex-col p-4 bg-gray-50 hover:bg-gray-100 rounded-lg shadow-md mb-4"
+              className="flex flex-col p-4 bg-gray-50 hover:bg-gray-100 rounded-lg shadow-lg mb-3 transition duration-300"
             >
-              <div className="flex justify-between items-center mb-2">
+              <div className="flex justify-between items-center mb-3">
                 <span className="text-lg font-medium text-dark-1">
                   {row.number}.
                 </span>
-                <button
-                  type="button"
-                  onClick={() => deleteRow(index)}
-                  className="bg-red-500 text-white py-1 px-2 rounded shadow-md hover:bg-red-600 transition-all"
-                >
-                  Delete
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => addRow(index)}
+                    className="bg-light-2 text-white p-1 px-4 rounded-full hover:bg-dark-1 transition-all"
+                  >
+                    + Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteRow(index)}
+                    className="bg-red-500 text-white p-1 px-4 rounded-full hover:bg-red-600 transition-all"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-              <input
-                type="text"
-                value={row.answer}
-                onChange={(e) => handleChange(index, "answer", e.target.value)}
-                placeholder="Enter Answer"
-                className="w-full border border-gray-300 rounded-md px-4 py-2 mb-2"
-              />
-              <input
-                type="number"
-                value={row.marks}
-                onChange={(e) => handleChange(index, "marks", e.target.value)}
-                placeholder="Marks"
-                className="w-1/3 border border-gray-300 rounded-md px-4 py-2 mb-2"
-              />
-              <div className="flex space-x-4 mb-2">
-                <label>
+
+              {/* Answer Input & Marks Input in the Same Line */}
+              <div className="flex gap-4 mb-3">
+                <div className="flex-1">
                   <input
-                    type="checkbox"
-                    checked={row.caseSensitive}
+                    id={`answer-${index}`}
+                    type="text"
+                    value={row.answer}
                     onChange={(e) =>
-                      handleChange(index, "caseSensitive", e.target.checked)
+                      handleChange(index, "answer", e.target.value)
                     }
-                  />{" "}
-                  Case Sensitive
-                </label>
-                <label>
+                    placeholder="Enter Answer"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:border-blue-400 transition-all"
+                  />
+                </div>
+                <div className="w-1/4">
                   <input
-                    type="checkbox"
-                    checked={row.orderSensitive}
+                    id={`marks-${index}`}
+                    type="number"
+                    value={row.marks}
                     onChange={(e) =>
-                      handleChange(index, "orderSensitive", e.target.checked)
+                      handleChange(index, "marks", e.target.value)
                     }
-                  />{" "}
-                  Order Sensitive
-                </label>
+                    placeholder="Marks"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:border-blue-400 transition-all"
+                  />
+                </div>
               </div>
-              <select
-                value={row.gradingType}
-                onChange={(e) =>
-                  handleChange(index, "gradingType", e.target.value)
-                }
-                className="border border-gray-300 rounded-md px-4 py-2"
-              >
-                <option value="single-word">Single Word</option>
-                <option value="short-phrase">Short Phrase</option>
-                <option value="unordered-list">Unordered List</option>
-                <option value="ordered-list">Ordered List</option>
-                <option value="numeric">Numeric</option>
-              </select>
+
+              {/* Grading Type and Options (Side-by-Side) */}
+              <div className="flex gap-4 mb-3 items-center justify-end">
+                {/* Sensitivity Options (Side-by-Side) */}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id={`caseSensitive-${index}`}
+                      type="checkbox"
+                      checked={row.caseSensitive}
+                      disabled={row.gradingType === "numerical"}
+                      onChange={(e) =>
+                        handleChange(index, "caseSensitive", e.target.checked)
+                      }
+                    />
+                    <label
+                      htmlFor={`caseSensitive-${index}`}
+                      className=" font-light"
+                    >
+                      Case Sensitive
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id={`orderSensitive-${index}`}
+                      type="checkbox"
+                      checked={row.orderSensitive}
+                      disabled={
+                        row.gradingType === "numerical" ||
+                        row.gradingType === "one-word" ||
+                        row.gradingType === "short-phrase"
+                      }
+                      onChange={(e) =>
+                        handleChange(index, "orderSensitive", e.target.checked)
+                      }
+                    />
+                    <label
+                      htmlFor={`orderSensitive-${index}`}
+                      className=" font-light"
+                    >
+                      Order Sensitive
+                    </label>
+                  </div>
+                </div>
+
+                <div className="w-full sm:w-1/2">
+                  <select
+                    id={`gradingType-${index}`}
+                    value={row.gradingType}
+                    onChange={(e) =>
+                      handleChange(index, "gradingType", e.target.value)
+                    }
+                    className="w-1/2 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:border-blue-400 transition-all"
+                  >
+                    <option value="one-word">One Word</option>
+                    <option value="short-phrase">Short Phrase</option>
+                    <option value="list">List</option>
+                    <option value="numerical">Numerical</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Range Inputs for Numerical Grading (Side-by-Side) */}
+              {row.gradingType === "numerical" && (
+                <div className="flex flex-col space-y-2 mb-3">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={row.useRange || false}
+                      onChange={(e) =>
+                        handleChange(index, "useRange", e.target.checked)
+                      }
+                      id={`useRange-${index}`}
+                    />
+                    <label
+                      htmlFor={`useRange-${index}`}
+                      className="ml-2 text-lg font-medium"
+                    >
+                      Use Range
+                    </label>
+                  </div>
+                  {row.useRange && (
+                    <div className="flex space-x-2">
+                      <div className="w-1/3">
+                        <label
+                          htmlFor={`minRange-${index}`}
+                          className="text-lg font-medium text-dark-1"
+                        >
+                          Min Range
+                        </label>
+                        <input
+                          id={`minRange-${index}`}
+                          type="number"
+                          value={row.range?.min || ""}
+                          onChange={(e) =>
+                            handleChange(index, "range", {
+                              ...row.range,
+                              min: parseFloat(e.target.value),
+                            })
+                          }
+                          placeholder="Min Range"
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none"
+                        />
+                      </div>
+                      <div className="w-1/3">
+                        <label
+                          htmlFor={`maxRange-${index}`}
+                          className="text-lg font-medium text-dark-1"
+                        >
+                          Max Range
+                        </label>
+                        <input
+                          id={`maxRange-${index}`}
+                          type="number"
+                          value={row.range?.max || ""}
+                          onChange={(e) =>
+                            handleChange(index, "range", {
+                              ...row.range,
+                              max: parseFloat(e.target.value),
+                            })
+                          }
+                          placeholder="Max Range"
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
-          <button
-            type="button"
-            onClick={() => addRow(rows.length - 1)}
-            className="bg-light-2 text-white py-2 px-4 rounded-full shadow-md hover:bg-light-1 transition-all"
-          >
-            Add Row
-          </button>
-          <div className="flex justify-end mt-4">
+
+          {/* Pass Score & Submit Button Side by Side */}
+          <div className="flex justify-end  gap-4 mt-8">
+            <div className="flex-1">
+              <label
+                htmlFor="passScore"
+                className="text-lg font-medium text-dark-1 mb-2"
+              >
+                {"Enter Pass Score: "}
+              </label>
+              <input
+                id="passScore"
+                type="number"
+                value={passScore}
+                onChange={(e) => setPassScore(parseFloat(e.target.value))}
+                placeholder="Pass Score (Default: 40)"
+                className="w-full sm:w-auto border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:border-blue-500 transition-all"
+              />
+            </div>
             <button
               type="submit"
               onClick={handleSubmit}
-              className="px-6 py-3 bg-light-2 text-white rounded-full shadow-md hover:bg-light-1 transition-all"
+              className="bg-green-500 text-white px-6 py-3 rounded-full shadow-md hover:bg-green-600 transition-all flex-shrink-0"
             >
-              Save Changes
+              Submit
             </button>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
