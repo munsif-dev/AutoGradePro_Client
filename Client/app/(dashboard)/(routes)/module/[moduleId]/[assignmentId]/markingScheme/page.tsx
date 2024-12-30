@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import api from "@/lib/api";
 import { useParams } from "next/navigation";
 import BackButton from "@/app/(dashboard)/_components/BackButton";
+import { useRouter } from "next/navigation";
 
 interface AnswerRow {
   id?: number;
@@ -30,9 +31,10 @@ const MarkingSchemeForm: React.FC = () => {
     },
   ]);
   const [title, setTitle] = useState<string>("");
-  const { assignmentId } = useParams();
+  const { assignmentId, moduleId } = useParams();
   const [markingSchemeId, setMarkingSchemeId] = useState<number | null>(null);
   const [passScore, setPassScore] = useState<number>(0); // New state for pass score
+  const router = useRouter();
 
   const fetchMarkingScheme = async () => {
     if (!assignmentId) return;
@@ -163,6 +165,7 @@ const MarkingSchemeForm: React.FC = () => {
         );
         alert("Marking Scheme updated successfully!");
         console.log("Response:", response.data);
+        router.push(`/module/${moduleId}/${assignmentId}`);
       } else {
         const response = await api.post(
           `/api/assignment/${assignmentId}/marking-scheme/`,
