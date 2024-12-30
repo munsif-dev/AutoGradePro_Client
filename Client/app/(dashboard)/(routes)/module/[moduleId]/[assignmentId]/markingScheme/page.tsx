@@ -252,9 +252,9 @@ const MarkingSchemeForm: React.FC = () => {
               </div>
 
               {/* Grading Type and Options (Side-by-Side) */}
-              <div className="flex gap-4 mb-3 items-center justify-end">
+              <div className="flex gap-4 mb-3 items-center justify-start">
                 {/* Sensitivity Options (Side-by-Side) */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-4">
                   <div className="flex items-center space-x-2">
                     <input
                       id={`caseSensitive-${index}`}
@@ -315,7 +315,7 @@ const MarkingSchemeForm: React.FC = () => {
               {/* Range Inputs for Numerical Grading (Side-by-Side) */}
               {row.gradingType === "numerical" && (
                 <div className="flex flex-col space-y-2 mb-3">
-                  <div className="flex items-center">
+                  <div className="flex items-center justify-start">
                     <input
                       type="checkbox"
                       checked={row.useRange || false}
@@ -326,20 +326,14 @@ const MarkingSchemeForm: React.FC = () => {
                     />
                     <label
                       htmlFor={`useRange-${index}`}
-                      className="ml-2 text-lg font-medium"
+                      className="ml-2  font-light"
                     >
-                      Use Range
+                      Add Range
                     </label>
                   </div>
                   {row.useRange && (
                     <div className="flex space-x-2">
                       <div className="w-1/3">
-                        <label
-                          htmlFor={`minRange-${index}`}
-                          className="text-lg font-medium text-dark-1"
-                        >
-                          Min Range
-                        </label>
                         <input
                           id={`minRange-${index}`}
                           type="number"
@@ -355,12 +349,6 @@ const MarkingSchemeForm: React.FC = () => {
                         />
                       </div>
                       <div className="w-1/3">
-                        <label
-                          htmlFor={`maxRange-${index}`}
-                          className="text-lg font-medium text-dark-1"
-                        >
-                          Max Range
-                        </label>
                         <input
                           id={`maxRange-${index}`}
                           type="number"
