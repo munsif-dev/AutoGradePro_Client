@@ -34,13 +34,13 @@ const Pricing = () => {
             <div className="w-32 h-[42px] left-[113px] top-[30px] absolute rounded-[20px] border border-white" />
             <div className="w-[235px] h-[233.01px] left-[64px] top-[198px] absolute">
               <div className="w-[198px] left-[37px] top-[27px] absolute text-white text-[15px] font-normal font-['Urbanist']">
-                Attendance Management
+                Generate Reports
               </div>
               <div className="w-[198px] left-[37px] top-[51px] absolute text-white text-[15px] font-normal font-['Urbanist']">
-                Leave System Management
+                Visualized Analysis
               </div>
               <div className="w-[198px] left-[36px] top-[80px] absolute text-white text-[15px] font-normal font-['Urbanist']">
-                Employee Management
+                Comfortable
               </div>
               <div className="w-[198px] left-[36px] top-[106px] absolute text-white text-[15px] font-normal font-['Urbanist']">
                 Expense Tracking{" "}
@@ -52,7 +52,7 @@ const Pricing = () => {
                 Invoice Generate{" "}
               </div>
               <div className="w-[198px] left-[37px] top-0 absolute text-white text-[15px] font-normal font-['Urbanist']">
-                App Management
+                Single File Upload
               </div>
               <div className="w-[198px] left-[33px] top-[188px] absolute text-[#81a7ba] text-[15px] font-normal font-['Urbanist']">
                 {" "}
