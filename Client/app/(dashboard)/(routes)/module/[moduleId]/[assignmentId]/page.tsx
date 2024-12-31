@@ -249,6 +249,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import api from "@/lib/api";
 import ProtectedRoute from "@/app/_components/ProtectedRoutes";
+import BackButton from "@/app/(dashboard)/_components/BackButton";
 
 interface AssignmentDetail {
   id: number;
@@ -291,7 +292,7 @@ const AssignmentDetailPage = () => {
   const fetchUploadedFiles = () => {
     if (!assignmentId) return;
     api
-      .get(`/api/submission/${assignmentId}/files/`) // Using the URL to get files for the assignment
+      .get(`/api/submission/${assignmentId}/files/`)
       .then((res) => setUploadedFiles(res.data))
       .catch((err) => alert("Failed to fetch uploaded files: " + err));
   };
@@ -305,6 +306,7 @@ const AssignmentDetailPage = () => {
       })
       .catch((err) => alert("Failed to delete file: " + err));
   };
+
   const gradeSubmissions = () => {
     console.log("Grading submissions for assignment ID:", assignmentId);
 
@@ -326,8 +328,12 @@ const AssignmentDetailPage = () => {
       })
       .catch((err) => alert("Failed to grade submissions: " + err));
   };
+
   return (
     <ProtectedRoute>
+      <div className="flex gap-4 items-center m-4 mb-0">
+        <BackButton /> {/* Add the back button here */}
+      </div>
       <div className="min-h-screen p-6">
         {assignment ? (
           <>
@@ -373,9 +379,11 @@ const AssignmentDetailPage = () => {
               </button>
               <button
                 className="flex-1 px-4 py-3 bg-[#ffe066] text-gray-800 rounded-lg shadow hover:bg-[#ffd13f] transition text-center"
-                onClick={() => console.log("Visualize")}
+                onClick={() =>
+                  router.push(`/module/${moduleId}/${assignmentId}/report`)
+                }
               >
-                Visualize
+                Report
               </button>
               <button
                 className="flex-1 px-4 py-3 bg-[#d1b1e3] text-gray-800 rounded-lg shadow hover:bg-[#b897d3] transition text-center"
@@ -403,8 +411,8 @@ const AssignmentDetailPage = () => {
                         rel="noopener noreferrer"
                         className="text-blue-600 hover:underline"
                       >
-                        {file.file_name}*/ {/* Display the file name */}
-/*                       </a>
+                        {file.file_name} {/* Display the file name */}
+                      </a>
                       <span className="text-sm text-gray-500">
                         Uploaded at:{" "}
                         {new Date(file.uploaded_at).toLocaleString()}

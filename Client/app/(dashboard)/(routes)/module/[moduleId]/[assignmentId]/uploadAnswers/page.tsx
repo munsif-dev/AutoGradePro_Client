@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import api from "@/lib/api";
 import ProtectedRoute from "@/app/_components/ProtectedRoutes";
+import BackButton from "@/app/(dashboard)/_components/BackButton";
 
 const UploadAnswersPage = () => {
   const router = useRouter();
@@ -59,18 +60,21 @@ const UploadAnswersPage = () => {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen p-6">
+      <div className="flex gap-4 items-center m-4">
+        <BackButton /> {/* Add the back button here */}
+      </div>
+      <div className="min-h-screen p-6 flex flex-col gap-6 items-center ">
         <h1 className="text-4xl font-bold text-custom-purple mb-4">
           Upload Answers
         </h1>
 
         {/* Enhanced Drag-and-Drop Section */}
         <div
-          className={`relative p-8 rounded-lg shadow-lg border-4 ${
+          className={`relative p-8 rounded-lg w-3/4   shadow-lg border-4 ${
             isDragging
               ? "border-light-1 bg-light-3"
               : "border-light-2 bg-gray-50"
-          } transition-all duration-300 ease-in-out cursor-pointer hover:shadow-xl hover:bg-light-3 group`}
+          } transition-all duration-300 ease-in-out cursor-pointer hover:shadow-xl hover:bg-purple-100 group`}
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragging(true);
@@ -123,7 +127,7 @@ const UploadAnswersPage = () => {
         />
 
         {selectedFiles.length > 0 && (
-          <div className="mt-6">
+          <div className="mt-6 w-3/4">
             <h3 className="text-xl font-semibold text-light-2 mb-2">
               Files Selected for Upload:
             </h3>

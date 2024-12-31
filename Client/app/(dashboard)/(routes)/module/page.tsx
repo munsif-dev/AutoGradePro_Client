@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import api from "@/lib/api";
 import ProtectedRoute from "@/app/_components/ProtectedRoutes";
+import BackButton from "../../_components/BackButton";
 
 interface Module {
   id: number;
@@ -43,12 +44,16 @@ const ModulePage = () => {
 
   return (
     <ProtectedRoute>
+      <div className="flex gap-4 items-center m-4">
+        <BackButton /> {/* Add the back button here */}
+      </div>
       <div className="min-h-screen bg-gradient-to-r p-8 flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-extrabold text-dark-1 tracking-wide">
             Manage <span className="text-light-2">Modules</span>
           </h1>
+
           <button
             onClick={() => router.push("/module/create")}
             className="flex items-center gap-3 px-6 py-3 bg-light-2 text-white rounded-full shadow-md hover:bg-light-1 transition ease-in-out duration-300 transform hover:scale-105"
