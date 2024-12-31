@@ -28,11 +28,13 @@ const AssignmentDetailPage = () => {
 
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<FileDetail[]>([]);
+  const [passScore, setPassScore] = useState<number>(0);
 
   useEffect(() => {
     if (assignmentId) {
       fetchAssignmentDetails();
       fetchUploadedFiles(); // Fetch the uploaded files
+      fetchMarkingScheme(); // Fetch the marking scheme
     }
   }, [assignmentId]);
 
@@ -50,6 +52,24 @@ const AssignmentDetailPage = () => {
       .get(`/api/submission/${assignmentId}/files/`)
       .then((res) => setUploadedFiles(res.data))
       .catch((err) => alert("Failed to fetch uploaded files: " + err));
+  };
+
+  const fetchMarkingScheme = async () => {
+    if (!assignmentId) {
+      console.warn("Assignment ID is not provided.");
+      return;
+    }
+
+    try {
+      const response = await api.get(
+        `/api/assignment/${assignmentId}/marking-scheme/detail/`
+      );
+      const { pass_score } = response.data;
+      setPassScore(pass_score ?? 40); // Use nullish coalescing to handle undefined/null values
+    } catch (error) {
+      console.error("Error fetching marking scheme:", error);
+      setPassScore(40);
+    }
   };
 
   const deleteFile = (fileId: number) => {
@@ -202,7 +222,7 @@ const AssignmentDetailPage = () => {
                           </td>
                           <td
                             className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${
-                              file.score !== undefined && file.score < 45
+                              file.score !== undefined && file.score < passScore
                                 ? "text-red-600"
                                 : "text-green-600"
                             }`}

@@ -43,10 +43,12 @@ const MarkingSchemeForm: React.FC = () => {
       const response = await api.get(
         `/api/assignment/${assignmentId}/marking-scheme/detail/`
       );
-      const { id, title, answers, pass_score } = response.data;
+      const { id, answers, title, pass_score } = response.data;
+      console.log("Marking Scheme:", response.data);
 
       setMarkingSchemeId(id);
-      setTitle(title);
+      setTitle(title || `Assignment ${assignmentId}`); // Ensure title is set
+      console.log("title:", title);
       setPassScore(pass_score || 40);
       if (answers && answers.length > 0) {
         const formattedAnswers = answers.map((answer: any, index: number) => ({
@@ -143,6 +145,7 @@ const MarkingSchemeForm: React.FC = () => {
 
     const markingSchemeData = {
       assignment: assignmentId,
+      title: title.trim(),
       pass_score: passScore,
       answers: rows.map((row) => ({
         id: row.id,
