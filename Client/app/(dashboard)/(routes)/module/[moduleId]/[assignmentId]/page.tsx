@@ -80,7 +80,7 @@ const AssignmentDetailPage = () => {
         fetchUploadedFiles(); // Refresh uploaded files after deletion
       })
       .catch((err) => alert("Failed to delete file: " + err));
-  };
+  }; //for deleting the file
 
   const gradeSubmissions = () => {
     console.log("Grading submissions for assignment ID:", assignmentId);
