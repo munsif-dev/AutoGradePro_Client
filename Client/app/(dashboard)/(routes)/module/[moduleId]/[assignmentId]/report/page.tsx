@@ -17,43 +17,28 @@ const AssignmentReportPage = () => {
     lowest: 0,
     median: 0,
     average: 0,
+    passed: 0,
+    failed: 0,
   });
 
   useEffect(() => {
     if (assignmentId) {
-      fetchGrades();
+      fetchReportData();
     }
   }, [assignmentId]);
 
-  const fetchGrades = () => {
+  const fetchReportData = () => {
     if (!assignmentId) return;
 
     api
-      .get(`/api/submission/${assignmentId}/grades/`)
+      .get(`/api/assignment/${assignmentId}/report`)
       .then((res) => {
-        const scores = res.data
-          .map((file: { score: number }) => file.score)
-          .filter((score: number) => score !== null);
-        setGrades(scores);
-        calculateStatistics(scores);
+        const { grades, highest, lowest, median, average, passed, failed } =
+          res.data;
+        setGrades(grades);
+        setStatistics({ highest, lowest, median, average, passed, failed });
       })
-      .catch((err) => alert("Failed to fetch grades: " + err));
-  };
-
-  const calculateStatistics = (scores: number[]) => {
-    if (scores.length === 0) return;
-
-    scores.sort((a, b) => a - b);
-    const highest = scores[scores.length - 1];
-    const lowest = scores[0];
-    const median =
-      scores.length % 2 === 0
-        ? (scores[scores.length / 2 - 1] + scores[scores.length / 2]) / 2
-        : scores[Math.floor(scores.length / 2)];
-    const average =
-      scores.reduce((sum, score) => sum + score, 0) / scores.length;
-
-    setStatistics({ highest, lowest, median, average });
+      .catch((err) => alert("Failed to fetch report data: " + err));
   };
 
   const chartData = {
@@ -75,10 +60,7 @@ const AssignmentReportPage = () => {
     labels: ["Passed", "Failed"],
     datasets: [
       {
-        data: [
-          grades.filter((score) => score >= 45).length,
-          grades.filter((score) => score < 45).length,
-        ],
+        data: [statistics.passed, statistics.failed],
         backgroundColor: ["#36A2EB", "#FF6384"],
         hoverBackgroundColor: ["#36A2EB", "#FF6384"],
       },
@@ -87,13 +69,14 @@ const AssignmentReportPage = () => {
 
   return (
     <ProtectedRoute>
+      <div className="flex gap-4 items-center m-4 mb-0">
+        <BackButton />
+      </div>
       <div className="min-h-screen p-6">
-        <div className="flex gap-4 items-center m-4 mb-0">
-          <BackButton />
-        </div>
         <h1 className="text-4xl font-bold text-dark-1 mb-4">
           Assignment Report
         </h1>
+
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-2xl font-semibold mb-4">Statistics</h2>
           <ul className="list-disc ml-6 text-gray-700 text-lg">
@@ -108,6 +91,12 @@ const AssignmentReportPage = () => {
             </li>
             <li>
               <strong>Average Score:</strong> {statistics.average.toFixed(2)}
+            </li>
+            <li>
+              <strong>Passed:</strong> {statistics.passed}
+            </li>
+            <li>
+              <strong>Failed:</strong> {statistics.failed}
             </li>
           </ul>
         </div>
