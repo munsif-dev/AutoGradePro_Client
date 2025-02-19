@@ -125,7 +125,7 @@ const AssignmentDetailPage = () => {
             )}
 
             {/* Action Buttons */}
-            <div className="mt-6 flex justify-between space-x-4">
+            <div className="mt-6 flex justify-between space-x-8">
               <button
                 className="flex-1 px-4 py-3 bg-[#a3c9e6] text-gray-800 rounded-lg shadow hover:bg-[#80b6d3] transition text-center"
                 onClick={() =>
@@ -159,12 +159,6 @@ const AssignmentDetailPage = () => {
                 }
               >
                 Report
-              </button>
-              <button
-                className="flex-1 px-4 py-3 bg-[#d1b1e3] text-gray-800 rounded-lg shadow hover:bg-[#b897d3] transition text-center"
-                onClick={() => console.log("Options")}
-              >
-                Options
               </button>
             </div>
 
@@ -209,7 +203,11 @@ const AssignmentDetailPage = () => {
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <a
-                              href={file.file}
+                              onClick={() =>
+                                router.push(
+                                  `/module/${moduleId}/${assignmentId}/${file.id}/`
+                                )
+                              }
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:underline"
