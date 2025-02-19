@@ -5,6 +5,8 @@ import { useRouter, useParams } from "next/navigation";
 import api from "@/lib/api";
 import ProtectedRoute from "@/app/_components/ProtectedRoutes";
 import BackButton from "@/app/(dashboard)/_components/BackButton";
+import { toast, ToastContainer } from "react-toastify"; // Import toastify
+import "react-toastify/dist/ReactToastify.css"; // Import toast styles
 
 interface AssignmentDetail {
   id: number;
@@ -87,6 +89,13 @@ const AssignmentDetailPage = () => {
 
     if (!assignmentId) return;
 
+    toast.info("Grading answers, please wait...", {
+      position: "top-right",
+      autoClose: false, // Keep it open until grading is complete
+      closeOnClick: false,
+      pauseOnHover: false,
+    });
+
     api
       .put(`/api/submission/${assignmentId}/grade/`)
       .then((res) => {
@@ -99,7 +108,11 @@ const AssignmentDetailPage = () => {
             return updatedScore ? { ...file, score: updatedScore.score } : file;
           })
         );
-        alert("Grading completed successfully!");
+
+        toast.success("Answers are graded successfully!", {
+          position: "top-right",
+          autoClose: 5000,
+        });
       })
       .catch((err) => alert("Failed to grade submissions: " + err));
   };
