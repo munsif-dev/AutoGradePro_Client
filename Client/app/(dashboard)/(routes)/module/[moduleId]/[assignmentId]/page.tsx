@@ -89,13 +89,6 @@ const AssignmentDetailPage = () => {
 
     if (!assignmentId) return;
 
-    toast.info("Grading answers, please wait...", {
-      position: "top-right",
-      autoClose: false, // Keep it open until grading is complete
-      closeOnClick: false,
-      pauseOnHover: false,
-    });
-
     api
       .put(`/api/submission/${assignmentId}/grade/`)
       .then((res) => {
@@ -108,13 +101,24 @@ const AssignmentDetailPage = () => {
             return updatedScore ? { ...file, score: updatedScore.score } : file;
           })
         );
+        toast.info("Grading answers, please wait...", {
+          position: "top-right",
+          autoClose: 3000,
+          closeOnClick: false,
+          pauseOnHover: false,
+        });
 
         toast.success("Answers are graded successfully!", {
           position: "top-right",
           autoClose: 5000,
         });
       })
-      .catch((err) => alert("Failed to grade submissions: " + err));
+      .catch((err) =>
+        toast.error("Failed to grade submissions: " + err, {
+          position: "top-right",
+          autoClose: 5000,
+        })
+      );
   };
 
   return (

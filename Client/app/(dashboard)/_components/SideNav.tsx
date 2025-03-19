@@ -15,8 +15,7 @@ const SideNav = () => {
     { id: 1, name: "Dashboard", icon: CircleFadingArrowUp, link: "/dashboard" },
     { id: 2, name: "My Modules", icon: Package, link: "/module" },
     { id: 3, name: "Assignments", icon: MonitorUp, link: "/assignment" },
-    { id: 4, name: "Analytics", icon: ChartSpline, link: "/analytic" },
-    { id: 5, name: "Settings", icon: Settings, link: "/settings" },
+    { id: 4, name: "Settings", icon: Settings, link: "/settings" },
   ];
 
   const [activeIndex, setActiveIndex] = useState<number | null>(0);
