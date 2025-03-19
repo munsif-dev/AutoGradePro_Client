@@ -89,6 +89,13 @@ const AssignmentDetailPage = () => {
 
     if (!assignmentId) return;
 
+    toast.info("Processing, Please wait...", {
+      position: "top-right",
+      autoClose: 3000,
+      closeOnClick: false,
+      pauseOnHover: false,
+    });
+
     api
       .put(`/api/submission/${assignmentId}/grade/`)
       .then((res) => {
@@ -101,12 +108,6 @@ const AssignmentDetailPage = () => {
             return updatedScore ? { ...file, score: updatedScore.score } : file;
           })
         );
-        toast.info("Grading answers, please wait...", {
-          position: "top-right",
-          autoClose: 3000,
-          closeOnClick: false,
-          pauseOnHover: false,
-        });
 
         toast.success("Answers are graded successfully!", {
           position: "top-right",
