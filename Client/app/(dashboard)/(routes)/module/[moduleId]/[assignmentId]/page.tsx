@@ -5,6 +5,8 @@ import { useRouter, useParams } from "next/navigation";
 import api from "@/lib/api";
 import ProtectedRoute from "@/app/_components/ProtectedRoutes";
 import BackButton from "@/app/(dashboard)/_components/BackButton";
+import { toast, ToastContainer } from "react-toastify"; // Import toastify
+import "react-toastify/dist/ReactToastify.css"; // Import toast styles
 
 interface AssignmentDetail {
   id: number;
@@ -99,9 +101,24 @@ const AssignmentDetailPage = () => {
             return updatedScore ? { ...file, score: updatedScore.score } : file;
           })
         );
-        alert("Grading completed successfully!");
+        toast.info("Grading answers, please wait...", {
+          position: "top-right",
+          autoClose: 3000,
+          closeOnClick: false,
+          pauseOnHover: false,
+        });
+
+        toast.success("Answers are graded successfully!", {
+          position: "top-right",
+          autoClose: 5000,
+        });
       })
-      .catch((err) => alert("Failed to grade submissions: " + err));
+      .catch((err) =>
+        toast.error("Failed to grade submissions: " + err, {
+          position: "top-right",
+          autoClose: 5000,
+        })
+      );
   };
 
   return (
