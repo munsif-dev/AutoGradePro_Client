@@ -18,10 +18,10 @@ const SideNav = () => {
     { id: 4, name: "Settings", icon: Settings, link: "/settings" },
   ];
 
-  const [activeIndex, setActiveIndex] = useState<number | null>(0);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   return (
-    <div className="">
+    <div className="bg-purple-200 h-full w-64 flex-col fixed inset-y-0 z-50 md:flex hidden">
       <div className="p-[10px] border-b flex justify-center items-center bg-purple-200  mb-3">
         <Link href="/" className="flex items-center justify-center">
           <Image

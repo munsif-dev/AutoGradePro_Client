@@ -21,11 +21,8 @@ const TopHeader = () => {
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 md:ml-[256px] bg-purple-200   ">
-      <div className="flex p-4 border-b justify-between items-center md:justify-end">
-        {/* Sidebar Toggle (Visible on Mobile) */}
-        <AlignJustify className="md:hidden text-dark-1 cursor-pointer hover:text-light-2" />
-
+    <div className="fixed top-0 left-0 right-0 z-50 md:ml-[222px] bg-purple-200   ">
+      <div className="flex p-4 border-b justify-end items-center ">
         {/* Logo (Visible on Mobile) */}
         <div className="md:hidden flex items-center">
           <Image
@@ -62,7 +59,7 @@ const TopHeader = () => {
               className="bg-white rounded-md shadow-lg py-2 w-40"
             >
               <DropdownMenuItem
-                onClick={() => router.push("/account")}
+                onClick={() => router.push("/settings")}
                 className="px-4 py-2 text-sm text-gray-700 hover:bg-light-2 hover:text-white rounded transition"
               >
                 Account
