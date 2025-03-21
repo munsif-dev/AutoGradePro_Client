@@ -17,6 +17,7 @@ const SettingsPage = () => {
   });
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [profilePicPreview, setProfilePicPreview] = useState(null); // For previewing the selected profile picture
   const router = useRouter();
 
   useEffect(() => {
@@ -56,18 +57,29 @@ const SettingsPage = () => {
         email: user.email,
         first_name: user.first_name,
         last_name: user.last_name,
+        password: newPassword ? newPassword : undefined, // Only include password if it's changed
       },
       university: user.university,
       department: user.department,
+      profile_picture: user.profile_picture, // Include profile picture if it's changed
     };
 
-    // Include password only if it's provided
-    if (newPassword) {
-      updatedData.user.password = newPassword; // Only include password if it's changed
+    // FormData to handle profile picture upload
+    const formData = new FormData();
+
+    // If there's a profile picture update, append it
+    if (user.profile_picture) {
+      formData.append("profile_picture", user.profile_picture);
     }
 
+    // Add other fields as necessary
+    formData.append("user", JSON.stringify(updatedData.user));
+    formData.append("university", user.university);
+    formData.append("department", user.department);
+
     try {
-      await api.put("/api/lecturer/update/", updatedData); // Call API to update user details
+      // PUT request to update the lecturer details, including profile picture if present
+      await api.put("/api/lecturer/details/", formData); // Use the correct URL for your update endpoint
       alert("Details updated successfully");
     } catch (error) {
       console.error("Failed to update user details:", error);
@@ -75,9 +87,12 @@ const SettingsPage = () => {
     }
   };
 
-  const handleProfilePictureChange = () => {
-    // Functionality to handle profile picture change
-    alert("Functionality to change profile picture will be implemented.");
+  const handleProfilePictureChange = (e) => {
+    const file = e.target.files[0]; // Get the selected file
+    if (file) {
+      setUser({ ...user, profile_picture: file }); // Update state with the new file
+      setProfilePicPreview(URL.createObjectURL(file)); // Preview the selected image
+    }
   };
 
   return (
@@ -145,6 +160,40 @@ const SettingsPage = () => {
               </div>
               <div>
                 <label
+                  htmlFor="university"
+                  className="block text-sm font-medium text-dark-1"
+                >
+                  University
+                </label>
+                <input
+                  type="text"
+                  id="university"
+                  value={user.university}
+                  onChange={(e) =>
+                    setUser({ ...user, university: e.target.value })
+                  }
+                  className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="department"
+                  className="block text-sm font-medium text-dark-1"
+                >
+                  Department
+                </label>
+                <input
+                  type="text"
+                  id="department"
+                  value={user.department}
+                  onChange={(e) =>
+                    setUser({ ...user, department: e.target.value })
+                  }
+                  className="mt-1 block w-full p-2 border border-gray-300 rounded-md"
+                />
+              </div>
+              <div>
+                <label
                   htmlFor="new_password"
                   className="block text-sm font-medium text-dark-1"
                 >
@@ -191,16 +240,19 @@ const SettingsPage = () => {
               Profile Picture
             </h2>
             <img
-              src={user.profile_picture || "/default-profile.png"} // Use a default profile image if none exists
+              src={
+                profilePicPreview ||
+                user.profile_picture ||
+                "/default-profile.png"
+              } // Use preview or default image
               alt="Profile"
               className="w-32 h-32 rounded-full mx-auto mb-4"
             />
-            <button
-              onClick={handleProfilePictureChange}
-              className="mt-4 px-6 py-2 bg-light-2 hover:bg-light-1 text-white rounded-full"
-            >
-              Change Profile Picture
-            </button>
+            <input
+              type="file"
+              onChange={handleProfilePictureChange}
+              className="mt-4"
+            />
           </div>
         </div>
       </div>
