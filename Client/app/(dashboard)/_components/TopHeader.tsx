@@ -1,6 +1,8 @@
 "use client";
 import { AlignJustify, Bell, User } from "lucide-react";
 import React from "react";
+import { useEffect, useState } from "react";
+import api from "@/lib/api";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -12,6 +14,20 @@ import {
 
 const TopHeader = () => {
   const router = useRouter();
+  const [profilePicture, setProfilePicture] = useState(null);
+
+  // Fetch profile picture on component mount
+  useEffect(() => {
+    api
+      .get("/api/lecturer/details/") // This should be the endpoint where you fetch the lecturer details
+      .then((response) => {
+        setProfilePicture(response.data.profile_picture); // Assuming the profile picture URL is part of the response
+        console.log("Profile picture fetched successfully", profilePicture);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch profile picture:", err);
+      });
+  }, []);
 
   // Logout function to clear tokens and redirect to the login page
   const handleLogout = () => {
@@ -42,19 +58,22 @@ const TopHeader = () => {
 
         <div className="flex items-center gap-6">
           {/* Notification Icon */}
-          <div className="relative">
-            <Bell className="w-6 h-6 text-dark-1 cursor-pointer hover:text-light-2 transition-transform transform hover:scale-105" />
-            {/* Optional Notification Badge */}
-            <div className="absolute top-0 right-0 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-              3
-            </div>
-          </div>
 
           {/* Profile Icon with Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger>
               <div className="w-10 h-10 bg-light-2 rounded-full flex items-center justify-center cursor-pointer shadow-md hover:shadow-lg transition-transform transform hover:scale-105">
-                <User className="w-6 h-6 text-white" />
+                {profilePicture ? (
+                  <Image
+                    src={profilePicture}
+                    alt="Profile"
+                    width={40}
+                    height={40}
+                    className="rounded-full object-cover"
+                  />
+                ) : (
+                  <User className="w-6 h-6 text-white" />
+                )}
               </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent
