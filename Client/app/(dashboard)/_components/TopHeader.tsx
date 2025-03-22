@@ -22,7 +22,7 @@ const TopHeader = () => {
       .get("/api/lecturer/details/") // This should be the endpoint where you fetch the lecturer details
       .then((response) => {
         setProfilePicture(response.data.profile_picture); // Assuming the profile picture URL is part of the response
-        console.log("Profile picture fetched successfully", profilePicture);
+        console.log("Profile picture fetched successfully");
       })
       .catch((err) => {
         console.error("Failed to fetch profile picture:", err);
