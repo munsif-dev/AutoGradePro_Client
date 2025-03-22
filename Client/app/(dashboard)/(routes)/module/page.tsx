@@ -5,6 +5,8 @@ import { Plus } from "lucide-react";
 import api from "@/lib/api";
 import ProtectedRoute from "@/app/_components/ProtectedRoutes";
 import BackButton from "../../_components/BackButton";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 interface Module {
   id: number;
@@ -25,21 +27,28 @@ const ModulePage = () => {
     api
       .get("/api/module/list/")
       .then((res) => setModules(res.data))
-      .catch((err) => alert("Failed to fetch modules: " + err));
+      .catch((err) => toast.error("Failed to fetch modules: " + err));
   };
 
   const deleteModule = (id: number) => {
-    api
-      .delete(`/api/module/delete/${id}/`)
-      .then((res) => {
-        if (res.status === 204) {
-          alert("Module deleted successfully!");
-          fetchModules();
-        } else {
-          alert("Failed to delete module.");
-        }
-      })
-      .catch((err) => alert("Error deleting module: " + err));
+    // Show a confirmation dialog before deleting
+    const isConfirmed = window.confirm(
+      "Are you sure you want to delete this module?"
+    );
+
+    if (isConfirmed) {
+      api
+        .delete(`/api/module/delete/${id}/`)
+        .then((res) => {
+          if (res.status === 204) {
+            toast.success("Module deleted successfully!");
+            fetchModules(); // Reload the module list
+          } else {
+            toast.error("Failed to delete module.");
+          }
+        })
+        .catch((err) => toast.error("Error deleting module: " + err));
+    }
   };
 
   return (
@@ -80,7 +89,7 @@ const ModulePage = () => {
                   className="flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg shadow-md cursor-pointer transform transition-transform hover:scale-102"
                   onClick={() => router.push(`/module/${module.id}`)} // Redirect to module details page
                 >
-                  <div>
+                  <div className="flex flex-col flex-grow">
                     <h3 className="text-xl font-semibold text-dark-1">
                       {module.name}
                     </h3>
@@ -93,21 +102,49 @@ const ModulePage = () => {
                       </p>
                     )}
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent triggering the click event on the list item
-                      deleteModule(module.id);
-                    }}
-                    className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-full text-sm shadow-md transition-all duration-300 transform hover:scale-105"
-                  >
-                    Delete
-                  </button>
+
+                  {/* Buttons for Edit and Delete */}
+                  <div className="flex gap-4">
+                    {/* Edit Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent triggering the click event on the list item
+                        router.push(`/module/edit/${module.id}`); // Navigate to the edit page
+                      }}
+                      className="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-full text-sm shadow-md transition-all duration-300 transform hover:scale-105"
+                    >
+                      Edit
+                    </button>
+                    {/* Delete Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent triggering the click event on the list item
+                        deleteModule(module.id);
+                      }}
+                      className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-full text-sm shadow-md transition-all duration-300 transform hover:scale-105"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </div>
       </div>
+
+      {/* Toast Container */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
     </ProtectedRoute>
   );
 };

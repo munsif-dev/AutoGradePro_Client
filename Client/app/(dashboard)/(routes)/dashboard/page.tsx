@@ -34,8 +34,10 @@ const Dashboard = () => {
     files_uploaded: 0,
     submissions_received: 0,
   });
+
+  // Define interface for Trend (now using day data instead of week)
   interface Trend {
-    month: string;
+    day: string; // Changed from week to day
     count: number;
   }
 
@@ -90,7 +92,7 @@ const Dashboard = () => {
       x: {
         title: {
           display: true,
-          text: "Months",
+          text: "Days", // Changed from Weeks/Months to Days
         },
       },
       y: {
@@ -103,8 +105,9 @@ const Dashboard = () => {
     },
   };
 
+  // Chart data for Modules Created (Day-by-day)
   const moduleChartData = {
-    labels: moduleTrends.map((trend) => trend.month),
+    labels: moduleTrends.map((trend) => trend.day), // Days as labels
     datasets: [
       {
         label: "Modules Created",
@@ -116,8 +119,9 @@ const Dashboard = () => {
     ],
   };
 
+  // Chart data for Assignments Created (Day-by-day)
   const assignmentChartData = {
-    labels: assignmentTrends.map((trend) => trend.month),
+    labels: assignmentTrends.map((trend) => trend.day), // Days as labels
     datasets: [
       {
         label: "Assignments Created",
@@ -129,8 +133,9 @@ const Dashboard = () => {
     ],
   };
 
+  // Chart data for Files Uploaded (Day-by-day)
   const uploadChartData = {
-    labels: uploadTrends.map((trend) => trend.month),
+    labels: uploadTrends.map((trend) => trend.day), // Days as labels
     datasets: [
       {
         label: "Files Uploaded",
@@ -196,7 +201,6 @@ const Dashboard = () => {
         </div>
 
         {/* Trend Graphs */}
-
         <div className="space-y-6 space-x-0 mb-8">
           <h2 className="text-2xl font-semibold text-center text-dark-1">
             Performance Trends
