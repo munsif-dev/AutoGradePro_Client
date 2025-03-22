@@ -91,29 +91,47 @@ const Hero = () => {
             More than 2K Lecturers use AutoGradePro From
           </div>
           <div className="w-[1194px] h-[102px] pl-5 pr-[19.09px] pt-[31px] pb-[21px] left-0 top-[60px] absolute justify-center items-start gap-[93.03px] inline-flex">
-            <img
-              className="w-[114.28px] h-[50px]"
-              src="https://via.placeholder.com/114x50"
+            <Image
+              className="w-[114.28px] h-[50px] object-contain"
+              src="/institutions/1-1.png"
+              alt="Institution Logo 1"
+              width={114}
+              height={50}
             />
-            <img
-              className="w-[114.28px] h-[50px]"
-              src="https://via.placeholder.com/114x50"
+            <Image
+              className="w-[114.28px] h-[50px] object-contain"
+              src="/institutions/1-2.png"
+              alt="Institution Logo 2"
+              width={114}
+              height={50}
             />
-            <img
-              className="w-[114.28px] h-[50px]"
-              src="https://via.placeholder.com/114x50"
+            <Image
+              className="w-[114.28px] h-[50px] object-contain"
+              src="/institutions/1-3.png"
+              alt="Institution Logo 3"
+              width={114}
+              height={50}
             />
-            <img
-              className="w-[114.28px] h-[50px]"
-              src="https://via.placeholder.com/114x50"
+            <Image
+              className="w-[114.28px] h-[50px] object-contain"
+              src="/institutions/1-4.png"
+              alt="Institution Logo 4"
+              width={114}
+              height={50}
             />
-            <img
-              className="w-[114.28px] h-[50px]"
-              src="https://via.placeholder.com/114x50"
+            <Image
+              className="w-[114.28px] h-[50px] object-contain"
+              src="/institutions/1-5.png"
+              alt="Institution Logo 5"
+              width={114}
+              height={50}
             />
-            <img
-              className="w-[114.28px] h-[50px]"
-              src="https://via.placeholder.com/114x50"
+            <Image
+              className="w-[114.28px] h-[50px] object-contain"
+              src="/institutions/1-6.png"
+              alt="Institution Logo 6"
+              width={114}
+              height={50}
             />
           </div>
         </div>
