@@ -6,10 +6,10 @@ const Footer = () => {
       <div className="w-[1274px] h-[289px] relative">
         <div className="h-[180px] left-0 top-0 absolute">
           <div className="w-[357px] left-[1px] top-[60px] absolute text-[#a6a6a6] text-lg font-medium font-['Poppins'] leading-[30px]">
-            Get started noew try our product
+            Get started now try our product
           </div>
           <div className="left-[1px] top-0 absolute text-[#894799] text-[50px] font-semibold font-['Poppins'] leading-[30px]">
-            Biccas
+            AutoGradePro
           </div>
           <div className="w-[410px] h-[60px] left-0 top-[120px] absolute">
             <div className="w-[266px] left-[20px] top-[15px] absolute text-[#a6a6a6] text-lg font-medium font-['Poppins'] leading-[30px]">
@@ -21,7 +21,7 @@ const Footer = () => {
           </div>
         </div>
         <div className="left-[1px] top-[259px] absolute text-white text-lg font-medium font-['Poppins'] leading-[30px]">
-          © 2022 Biccas Inc. Copyright and rights reserved
+          © 2025 AutoGradePro Inc. Copyright and rights reserved
         </div>
         <div className="w-[594px] h-[205px] left-[669px] top-0 absolute">
           <div className="w-[187px] h-[205px] left-0 top-0 absolute">

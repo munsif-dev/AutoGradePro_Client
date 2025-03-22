@@ -15,7 +15,7 @@ const InputAndLink = () => {
             <div className="w-[425px] h-[199px] pl-8 pr-[2.19px] pb-px left-0 top-[66px] absolute flex-col justify-start items-start gap-[15px] inline-flex">
               <div className="w-[391px] h-[180px] text-center text-[#ffcece] text-xl font-medium font-['Poppins'] leading-[25px]">
                 "Seamlessly grade answers from various input formats, including
-                Word documents, text files, and handwritten scripts. Our
+                Word documents and text files. Our
                 platform supports diverse file types to ensure all student
                 submissions are accurately assessed."
               </div>
@@ -32,7 +32,7 @@ const InputAndLink = () => {
             <div className="h-[151px] pl-8 pr-[2.19px] pb-px left-[744px] top-[113px] absolute flex-col justify-start items-start gap-[15px] inline-flex">
               <div className="w-[418px] text-center text-[#ffcece] text-xl font-medium font-['Poppins'] leading-[25px]">
                 "Seamlessly grade answers from various input formats, including
-                Word documents, text files, and handwritten scripts. Our
+                Word documents and text files. Our
                 platform supports diverse file types to ensure all student
                 submissions are accurately assessed."
               </div>
