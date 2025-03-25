@@ -44,12 +44,11 @@ const MarkingSchemeForm: React.FC = () => {
         `/api/assignment/${assignmentId}/marking-scheme/detail/`
       );
       const { id, answers, title, pass_score } = response.data;
-      console.log("Marking Scheme:", response.data);
 
       setMarkingSchemeId(id);
-      setTitle(title || `Assignment ${assignmentId}`); // Ensure title is set
-      console.log("title:", title);
+      setTitle(title || `Assignment ${assignmentId}`);
       setPassScore(pass_score || 40);
+
       if (answers && answers.length > 0) {
         const formattedAnswers = answers.map((answer: any, index: number) => ({
           id: answer.id,
@@ -67,9 +66,15 @@ const MarkingSchemeForm: React.FC = () => {
       }
     } catch (error: any) {
       if (error.response && error.response.status === 404) {
-        console.log("No existing marking scheme found.");
+        // Create a new marking scheme mode
+        console.log("No existing marking scheme found. Creating a new one.");
+        setMarkingSchemeId(null);
+        setTitle(`Assignment ${assignmentId}`);
+        // Keep default rows from initial state
       } else {
-        alert("Failed to fetch marking scheme: " + error.message);
+        console.error("Error fetching marking scheme:", error);
+        // Use toast instead of alert for better UX
+        // toast.error("Failed to fetch marking scheme. Using default values.");
       }
     }
   };
