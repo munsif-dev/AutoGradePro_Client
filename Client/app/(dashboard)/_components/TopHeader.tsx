@@ -81,7 +81,7 @@ const TopHeader = () => {
               className="bg-white rounded-md shadow-lg py-2 w-40"
             >
               <DropdownMenuItem
-                onClick={() => router.push("/account")}
+                onClick={() => router.push("/settings")}
                 className="px-4 py-2 text-sm text-gray-700 hover:bg-light-2 hover:text-white rounded transition"
               >
                 Account

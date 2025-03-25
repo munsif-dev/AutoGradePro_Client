@@ -15,9 +15,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="bg-purple-100">
-        <main className="relative  bg-purple-100 overflow-hidden">
+    <html lang="en" suppressHydrationWarning>
+      <body className="bg-purple-100" suppressHydrationWarning>
+        <main className="relative bg-purple-100 overflow-hidden">
           {children}
         </main>
         <ToastContainer />
