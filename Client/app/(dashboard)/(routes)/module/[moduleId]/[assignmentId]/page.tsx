@@ -5,8 +5,20 @@ import { useRouter, useParams } from "next/navigation";
 import api from "@/lib/api";
 import ProtectedRoute from "@/app/_components/ProtectedRoutes";
 import BackButton from "@/app/(dashboard)/_components/BackButton";
-import { toast, ToastContainer } from "react-toastify"; // Import toastify
-import "react-toastify/dist/ReactToastify.css"; // Import toast styles
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import {
+  Search,
+  Download,
+  FileText,
+  Calendar,
+  AlertCircle,
+  Trash2,
+  FileUp,
+  CheckSquare,
+  BarChart2,
+} from "lucide-react";
+import * as XLSX from "xlsx";
 
 interface AssignmentDetail {
   id: number;
@@ -24,28 +36,38 @@ interface FileDetail {
   uploaded_at: string;
   score?: number; // Score of the file, optional
 }
+
 const AssignmentDetailPage = () => {
   const router = useRouter();
   const { moduleId, assignmentId } = useParams();
 
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<FileDetail[]>([]);
-  const [passScore, setPassScore] = useState<number>(0);
+  const [passScore, setPassScore] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (assignmentId) {
       fetchAssignmentDetails();
-      fetchUploadedFiles(); // Fetch the uploaded files
-      fetchMarkingScheme(); // Fetch the marking scheme
+      fetchUploadedFiles();
+      fetchMarkingScheme();
     }
   }, [assignmentId]);
 
   const fetchAssignmentDetails = () => {
     if (!assignmentId) return;
+    setIsLoading(true);
     api
       .get(`/api/assignment/${assignmentId}/`)
-      .then((res) => setAssignment(res.data))
-      .catch((err) => alert("Failed to fetch assignment details: " + err));
+      .then((res) => {
+        setAssignment(res.data);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        toast.error("Failed to fetch assignment details");
+        setIsLoading(false);
+      });
   };
 
   const fetchUploadedFiles = () => {
@@ -53,7 +75,7 @@ const AssignmentDetailPage = () => {
     api
       .get(`/api/submission/${assignmentId}/files/`)
       .then((res) => setUploadedFiles(res.data))
-      .catch((err) => alert("Failed to fetch uploaded files: " + err));
+      .catch((err) => toast.error("Failed to fetch uploaded files"));
   };
 
   const fetchMarkingScheme = async () => {
@@ -67,7 +89,7 @@ const AssignmentDetailPage = () => {
         `/api/assignment/${assignmentId}/marking-scheme/detail/`
       );
       const { pass_score } = response.data;
-      setPassScore(pass_score ?? 40); // Use nullish coalescing to handle undefined/null values
+      setPassScore(pass_score ?? 40);
     } catch (error) {
       console.error("Error fetching marking scheme:", error);
       setPassScore(40);
@@ -75,24 +97,31 @@ const AssignmentDetailPage = () => {
   };
 
   const deleteFile = (fileId: number) => {
-    api
-      .delete(`/api/submission/${assignmentId}/delete-file/${fileId}/`)
-      .then((res) => {
-        alert("File deleted successfully!");
-        fetchUploadedFiles(); // Refresh uploaded files after deletion
-      })
-      .catch((err) => alert("Failed to delete file: " + err));
-  }; //for deleting the file
+    if (confirm("Are you sure you want to delete this file?")) {
+      api
+        .delete(`/api/submission/${assignmentId}/delete-file/${fileId}/`)
+        .then((res) => {
+          toast.success("File deleted successfully!");
+          fetchUploadedFiles();
+        })
+        .catch((err) => toast.error("Failed to delete file"));
+    }
+  };
 
   const gradeSubmissions = () => {
-    console.log("Grading submissions for assignment ID:", assignmentId);
-
     if (!assignmentId) return;
+
+    toast.info("Grading answers, please wait...", {
+      position: "top-right",
+      autoClose: 3000,
+      closeOnClick: false,
+      pauseOnHover: false,
+    });
 
     api
       .put(`/api/submission/${assignmentId}/grade/`)
       .then((res) => {
-        const updatedScores = res.data; // Contains only the scores
+        const updatedScores = res.data;
         setUploadedFiles((prevFiles) =>
           prevFiles.map((file) => {
             const updatedScore = updatedScores.find(
@@ -101,156 +130,219 @@ const AssignmentDetailPage = () => {
             return updatedScore ? { ...file, score: updatedScore.score } : file;
           })
         );
-        toast.info("Grading answers, please wait...", {
-          position: "top-right",
-          autoClose: 3000,
-          closeOnClick: false,
-          pauseOnHover: false,
-        });
 
-        toast.success("Answers are graded successfully!", {
-          position: "top-right",
-          autoClose: 5000,
-        });
+        toast.success("Answers are graded successfully!");
       })
-      .catch((err) =>
-        toast.error("Failed to grade submissions: " + err, {
-          position: "top-right",
-          autoClose: 5000,
-        })
-      );
+      .catch((err) => toast.error("Failed to grade submissions"));
   };
+
+  // Filter files based on search query
+  const filteredFiles = uploadedFiles.filter((file) =>
+    file.file_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Function to export files to Excel
+  const exportToExcel = () => {
+    const fileData = uploadedFiles.map((file) => ({
+      "File Name": file.file_name,
+      "Uploaded At": new Date(file.uploaded_at).toLocaleString(),
+      Score: file.score !== undefined ? file.score : "Not graded",
+      Status:
+        file.score !== undefined
+          ? file.score >= passScore
+            ? "Pass"
+            : "Fail"
+          : "N/A",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(fileData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Submissions");
+
+    // Generate Excel file
+    const assignmentName = assignment?.title || "Assignment";
+    XLSX.writeFile(workbook, `${assignmentName}_submissions.xlsx`);
+  };
+
+  if (isLoading) {
+    return (
+      <ProtectedRoute>
+        <div className="min-h-screen flex flex-col p-8">
+          <div className="flex gap-4 items-center mb-6">
+            <BackButton />
+          </div>
+          <div className="w-full h-64 flex justify-center items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute>
-      <div className="flex gap-4 items-center m-4 mb-0">
-        <BackButton /> {/* Add the back button here */}
-      </div>
-      <div className="min-h-screen p-6">
+      <div className="min-h-screen flex flex-col p-8">
+        {/* Header Section */}
+        <div className="flex gap-4 items-center mb-6">
+          <BackButton />
+        </div>
+
         {assignment ? (
           <>
-            <h1 className="text-4xl font-bold text-dark-1 mb-4">
-              {assignment.title}
-            </h1>
-            <p className="text-lg text-gray-600 mt-2">
-              Due: {new Date(assignment.due_date).toLocaleString()}
-            </p>
-            {assignment.description && (
-              <p className="text-base text-gray-500 mt-4">
-                {assignment.description}
-              </p>
-            )}
+            {/* Assignment Details Card */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <h1 className="text-3xl font-bold text-gray-800 mb-4">
+                {assignment.title}
+              </h1>
 
-            {/* Action Buttons */}
-            <div className="mt-6 flex justify-between space-x-8">
-              <button
-                className="flex-1 px-4 py-3 bg-[#a3c9e6] text-gray-800 rounded-lg shadow hover:bg-[#80b6d3] transition text-center"
-                onClick={() =>
-                  router.push(
-                    `/module/${moduleId}/${assignmentId}/uploadAnswers`
-                  )
-                }
-              >
-                Upload Answers
-              </button>
-              <button
-                className="flex-1 px-4 py-3 bg-[#b3b3b3] text-gray-800 rounded-lg shadow hover:bg-[#999999] transition text-center"
-                onClick={() =>
-                  router.push(
-                    `/module/${moduleId}/${assignmentId}/markingScheme`
-                  )
-                }
-              >
-                Make Marking Scheme
-              </button>
-              <button
-                className="flex-1 px-4 py-3 bg-[#a6f1c7] text-gray-800 rounded-lg shadow hover:bg-[#8ae3ab] transition text-center"
-                onClick={gradeSubmissions}
-              >
-                Grade
-              </button>
-              <button
-                className="flex-1 px-4 py-3 bg-[#ffe066] text-gray-800 rounded-lg shadow hover:bg-[#ffd13f] transition text-center"
-                onClick={() =>
-                  router.push(`/module/${moduleId}/${assignmentId}/report`)
-                }
-              >
-                Report
-              </button>
+              <div className="flex items-center text-gray-600 mb-4">
+                <Calendar className="w-5 h-5 mr-2 text-purple-500" />
+                <span>
+                  Due: {new Date(assignment.due_date).toLocaleString()}
+                </span>
+              </div>
+
+              {assignment.description && (
+                <div className="bg-purple-50 p-4 rounded-md border border-purple-100 mb-4">
+                  <p className="text-gray-700">{assignment.description}</p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-3 mt-4">
+                <button
+                  onClick={() =>
+                    router.push(
+                      `/module/${moduleId}/${assignmentId}/uploadAnswers`
+                    )
+                  }
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
+                >
+                  <FileUp className="w-4 h-4" />
+                  Upload Answers
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(
+                      `/module/${moduleId}/${assignmentId}/markingScheme`
+                    )
+                  }
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                >
+                  <CheckSquare className="w-4 h-4" />
+                  Make Marking Scheme
+                </button>
+
+                <button
+                  onClick={gradeSubmissions}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+                >
+                  <FileText className="w-4 h-4" />
+                  Grade
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(`/module/${moduleId}/${assignmentId}/report`)
+                  }
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition"
+                >
+                  <BarChart2 className="w-4 h-4" />
+                  Report
+                </button>
+
+                <button
+                  onClick={exportToExcel}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
+                >
+                  <Download className="w-4 h-4" />
+                  Export to Excel
+                </button>
+              </div>
             </div>
 
-            {/* Uploaded Files */}
-            <div className="mt-8">
-              <h2 className="text-2xl font-semibold text-dark-1 mb-4">
-                Uploaded Files
-              </h2>
-              {uploadedFiles.length > 0 ? (
+            {/* Uploaded Files Section */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Uploaded Files
+                </h2>
+
+                {/* Search Bar */}
+                <div className="relative w-full max-w-xs">
+                  <input
+                    type="text"
+                    placeholder="Search files..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+
+              {filteredFiles.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 bg-white shadow-md rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           File Name
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Uploaded At
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Score
                         </th>
-                        <th scope="col" className="relative px-6 py-3">
-                          <span className="sr-only">Delete</span>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {uploadedFiles.map((file) => (
-                        <tr
-                          key={file.id}
-                          className="hover:bg-gray-100 transition"
-                        >
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredFiles.map((file) => (
+                        <tr key={file.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <a
+                            <div
                               onClick={() =>
                                 router.push(
                                   `/module/${moduleId}/${assignmentId}/${file.id}/`
                                 )
                               }
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline"
+                              className="text-blue-600 hover:underline cursor-pointer flex items-center"
                             >
+                              <FileText className="w-4 h-4 mr-2" />
                               {file.file_name}
-                            </a>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {new Date(file.uploaded_at).toLocaleString()}
                           </td>
-                          <td
-                            className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${
-                              file.score !== undefined && file.score < passScore
-                                ? "text-red-600"
-                                : "text-green-600"
-                            }`}
-                          >
-                            {file.score !== undefined
-                              ? file.score
-                              : "Not graded"}
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {file.score !== undefined ? (
+                              <span
+                                className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                  file.score >= passScore
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                {file.score} / 100
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                Not graded
+                              </span>
+                            )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <button
                               onClick={() => deleteFile(file.id)}
-                              className="bg-red-500 hover:bg-red-600 text-white py-1 px-4 rounded-full text-sm transition"
+                              className="text-red-600 hover:text-red-900 flex items-center"
                             >
+                              <Trash2 className="w-4 h-4 mr-1" />
                               Delete
                             </button>
                           </td>
@@ -260,16 +352,30 @@ const AssignmentDetailPage = () => {
                   </table>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  No files uploaded yet.
-                </p>
+                <div className="text-center py-8">
+                  <AlertCircle className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">
+                    {uploadedFiles.length === 0
+                      ? "No files uploaded yet."
+                      : "No files match your search."}
+                  </p>
+                </div>
               )}
             </div>
           </>
         ) : (
-          <p>Loading...</p>
+          <div className="bg-white rounded-lg shadow-md p-6 text-center">
+            <p className="text-gray-500">
+              Assignment not found or failed to load.
+            </p>
+          </div>
         )}
       </div>
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+      />
     </ProtectedRoute>
   );
 };
