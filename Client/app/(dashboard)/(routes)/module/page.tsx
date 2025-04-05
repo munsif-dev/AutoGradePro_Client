@@ -97,8 +97,7 @@ const ModulePage = () => {
         {/* Top Navigation Bar */}
         <div className="sticky top-0 z-10 bg-white shadow-sm p-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <BackButton />
-            <h1 className="text-2xl font-bold text-dark-1 hidden md:block">
+            <h1 className="text-2xl pl-6 font-bold text-dark-1 hidden md:block">
               Modules Management
             </h1>
           </div>
