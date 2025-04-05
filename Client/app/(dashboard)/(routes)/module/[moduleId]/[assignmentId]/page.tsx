@@ -19,6 +19,7 @@ import {
   BarChart2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import GradingProgressModal from "@/app/(dashboard)/(routes)/module/[moduleId]/[assignmentId]/_components/GradingProgressModal";
 
 interface AssignmentDetail {
   id: number;
@@ -37,6 +38,23 @@ interface FileDetail {
   score?: number; // Score of the file, optional
 }
 
+interface GradingFile {
+  id: number;
+  file_name: string;
+  status: "pending" | "grading" | "completed" | "error";
+  score?: number;
+}
+
+interface GradingStats {
+  totalFiles: number;
+  completedFiles: number;
+  totalScore: number;
+  averageScore: number;
+  passedFiles: number;
+  failedFiles: number;
+  passScore: number;
+}
+
 const AssignmentDetailPage = () => {
   const router = useRouter();
   const { moduleId, assignmentId } = useParams();
@@ -46,6 +64,20 @@ const AssignmentDetailPage = () => {
   const [passScore, setPassScore] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+
+  // Grading progress state
+  const [showGradingModal, setShowGradingModal] = useState(false);
+  const [gradingFiles, setGradingFiles] = useState<GradingFile[]>([]);
+  const [gradingStats, setGradingStats] = useState<GradingStats>({
+    totalFiles: 0,
+    completedFiles: 0,
+    totalScore: 0,
+    averageScore: 0,
+    passedFiles: 0,
+    failedFiles: 0,
+    passScore: 40,
+  });
+  const [isGrading, setIsGrading] = useState(false);
 
   useEffect(() => {
     if (assignmentId) {
@@ -90,6 +122,12 @@ const AssignmentDetailPage = () => {
       );
       const { pass_score } = response.data;
       setPassScore(pass_score ?? 40);
+
+      // Update grading stats with pass score
+      setGradingStats((prev) => ({
+        ...prev,
+        passScore: pass_score ?? 40,
+      }));
     } catch (error) {
       console.error("Error fetching marking scheme:", error);
       setPassScore(40);
@@ -108,32 +146,123 @@ const AssignmentDetailPage = () => {
     }
   };
 
-  const gradeSubmissions = () => {
-    if (!assignmentId) return;
+  const updateGradingProgress = (
+    fileId: number,
+    status: "pending" | "grading" | "completed" | "error",
+    score?: number
+  ) => {
+    setGradingFiles((prev) =>
+      prev.map((file) =>
+        file.id === fileId ? { ...file, status, score } : file
+      )
+    );
 
-    toast.info("Grading answers, please wait...", {
-      position: "top-right",
-      autoClose: 3000,
-      closeOnClick: false,
-      pauseOnHover: false,
+    // Update statistics if a file has been completed
+    if (status === "completed" && score !== undefined) {
+      setGradingStats((prev) => {
+        const newCompletedFiles = prev.completedFiles + 1;
+        const newTotalScore = prev.totalScore + score;
+        const newAverageScore = newTotalScore / newCompletedFiles;
+        const isPassed = score >= prev.passScore;
+
+        return {
+          ...prev,
+          completedFiles: newCompletedFiles,
+          totalScore: newTotalScore,
+          averageScore: newAverageScore,
+          passedFiles: isPassed ? prev.passedFiles + 1 : prev.passedFiles,
+          failedFiles: !isPassed ? prev.failedFiles + 1 : prev.failedFiles,
+        };
+      });
+    }
+  };
+
+  // Simulation of gradual file grading for better UI feedback
+  const simulateGradingProcess = async (
+    files: GradingFile[]
+  ): Promise<any[]> => {
+    // Prepare the real API call
+    const apiPromise = api.put(`/api/submission/${assignmentId}/grade/`);
+
+    // While the real API call is happening, simulate visual progress
+    for (const file of files) {
+      // Update status to 'grading'
+      updateGradingProgress(file.id, "grading");
+
+      // Simulate processing time for each file (150-800ms)
+      const processingTime = Math.floor(Math.random() * 650) + 150;
+      await new Promise((resolve) => setTimeout(resolve, processingTime));
+    }
+
+    // Wait for the real API response
+    try {
+      const response = await apiPromise;
+      return response.data;
+    } catch (error) {
+      console.error("Error grading submissions:", error);
+      // Mark all files as error
+      files.forEach((file) => {
+        if (file.status !== "completed") {
+          updateGradingProgress(file.id, "error");
+        }
+      });
+      toast.error("Failed to grade submissions");
+      throw error;
+    }
+  };
+
+  const gradeSubmissions = async () => {
+    if (!assignmentId || isGrading) return;
+
+    // Initialize grading process
+    setIsGrading(true);
+
+    // Prepare grading files array from uploaded files
+    const filesToGrade = uploadedFiles.map((file) => ({
+      id: file.id,
+      file_name: file.file_name,
+      status: "pending" as const,
+    }));
+
+    // Reset grading stats
+    setGradingStats({
+      totalFiles: filesToGrade.length,
+      completedFiles: 0,
+      totalScore: 0,
+      averageScore: 0,
+      passedFiles: 0,
+      failedFiles: 0,
+      passScore: passScore,
     });
 
-    api
-      .put(`/api/submission/${assignmentId}/grade/`)
-      .then((res) => {
-        const updatedScores = res.data;
-        setUploadedFiles((prevFiles) =>
-          prevFiles.map((file) => {
-            const updatedScore = updatedScores.find(
-              (scoreObj: { id: number }) => scoreObj.id === file.id
-            );
-            return updatedScore ? { ...file, score: updatedScore.score } : file;
-          })
-        );
+    setGradingFiles(filesToGrade);
+    setShowGradingModal(true);
 
-        toast.success("Answers are graded successfully!");
-      })
-      .catch((err) => toast.error("Failed to grade submissions"));
+    try {
+      // Start the simulated grading process
+      const gradingResults = await simulateGradingProcess(filesToGrade);
+
+      // Update UI with actual results from the API
+      gradingResults.forEach((result: { id: number; score: number }) => {
+        updateGradingProgress(result.id, "completed", result.score);
+      });
+
+      // Update the uploaded files with the new scores
+      setUploadedFiles((prevFiles) =>
+        prevFiles.map((file) => {
+          const updatedScore = gradingResults.find(
+            (scoreObj: { id: number }) => scoreObj.id === file.id
+          );
+          return updatedScore ? { ...file, score: updatedScore.score } : file;
+        })
+      );
+
+      toast.success("Grading completed successfully!");
+    } catch (err) {
+      // Error handling done in simulateGradingProcess
+    } finally {
+      setIsGrading(false);
+    }
   };
 
   // Filter files based on search query
@@ -236,10 +365,15 @@ const AssignmentDetailPage = () => {
 
                 <button
                   onClick={gradeSubmissions}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+                  disabled={isGrading || uploadedFiles.length === 0}
+                  className={`flex items-center gap-2 px-4 py-2 ${
+                    isGrading || uploadedFiles.length === 0
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-green-600 hover:bg-green-700"
+                  } text-white rounded-md transition`}
                 >
                   <FileText className="w-4 h-4" />
-                  Grade
+                  {isGrading ? "Grading..." : "Grade"}
                 </button>
 
                 <button
@@ -371,6 +505,15 @@ const AssignmentDetailPage = () => {
           </div>
         )}
       </div>
+
+      {/* Grading Progress Modal */}
+      <GradingProgressModal
+        isOpen={showGradingModal}
+        onClose={() => setShowGradingModal(false)}
+        files={gradingFiles}
+        stats={gradingStats}
+      />
+
       <ToastContainer
         position="top-right"
         autoClose={5000}
