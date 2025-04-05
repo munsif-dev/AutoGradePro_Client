@@ -1,17 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
 import ProtectedRoute from "@/app/_components/ProtectedRoutes";
 import BackButton from "@/app/(dashboard)/_components/BackButton";
 import {
-  CheckCircleIcon,
-  XCircleIcon,
-  DocumentTextIcon,
   DocumentChartBarIcon,
   ArrowPathIcon,
-  AcademicCapIcon,
 } from "@heroicons/react/24/outline";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -23,6 +19,14 @@ import {
   CheckCircle,
   XCircle,
   BarChart4,
+  Calendar,
+  ChevronRight,
+  RefreshCw,
+  FileDown,
+  ExternalLink,
+  AlertTriangle,
+  Award,
+  File,
 } from "lucide-react";
 
 interface Answer {
@@ -39,20 +43,41 @@ interface FileDetailData {
   answers: Answer[];
   marking_scheme: Record<number, any>;
   score: number;
-  pass_score?: number; // Pass score might be included in the API response
+  pass_score?: number;
 }
 
 const FileDetailPage = () => {
+  const router = useRouter();
   const { moduleId, assignmentId, fileId } = useParams();
   const [fileData, setFileData] = useState<FileDetailData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"answers" | "summary">("answers");
-  const [passScore, setPassScore] = useState<number>(40); // Default pass score, will be updated
+  const [passScore, setPassScore] = useState<number>(40); // Default pass score
+  const [refreshing, setRefreshing] = useState(false);
+  const [assignmentTitle, setAssignmentTitle] = useState<string>("");
+  const [moduleTitle, setModuleTitle] = useState<string>("");
 
   useEffect(() => {
     fetchFileDetails();
-    fetchMarkingSchemeDetails(); // Get the pass score from marking scheme
+    fetchMarkingSchemeDetails();
+    fetchAssignmentDetails();
   }, [fileId]);
+
+  const fetchAssignmentDetails = () => {
+    if (!assignmentId) return;
+
+    api
+      .get(`/api/assignment/${assignmentId}/`)
+      .then((res) => {
+        setAssignmentTitle(res.data.title || `Assignment ${assignmentId}`);
+        if (res.data.module && res.data.module.name) {
+          setModuleTitle(res.data.module.name);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch assignment details:", err);
+      });
+  };
 
   const fetchFileDetails = () => {
     if (!fileId || !assignmentId) return;
@@ -72,6 +97,16 @@ const FileDetailPage = () => {
         toast.error("Failed to fetch file details");
         setIsLoading(false);
       });
+  };
+
+  const refreshData = () => {
+    setRefreshing(true);
+    Promise.all([fetchFileDetails(), fetchMarkingSchemeDetails()]).finally(
+      () => {
+        setTimeout(() => setRefreshing(false), 700);
+        toast.success("Assessment data refreshed");
+      }
+    );
   };
 
   // Fetch marking scheme to get the pass score
@@ -102,9 +137,13 @@ const FileDetailPage = () => {
 
   // Get grade letter based on score
   const getGradeLetter = (score: number) => {
+    if (score >= 90) return "A+";
     if (score >= 80) return "A";
+    if (score >= 75) return "B+";
     if (score >= 70) return "B";
+    if (score >= 65) return "C+";
     if (score >= 60) return "C";
+    if (score >= 55) return "D+";
     if (score >= 50) return "D";
     if (score >= passScore) return "E";
     return "F";
@@ -171,13 +210,20 @@ const FileDetailPage = () => {
       const stats = getStats();
       // Create summary sheet
       const summaryData = [
-        ["GRADING REPORT SUMMARY"],
+        ["ASSESSMENT RESULTS"],
         [""],
         ["File Name", fileData.file_name],
+        ["Assignment", assignmentTitle],
+        ["Module", moduleTitle],
+        [""],
+        ["SCORING SUMMARY"],
+        [""],
         ["Total Score", fileData.score],
         ["Pass Threshold", passScore],
         ["Grade", getGradeLetter(fileData.score)],
         ["Result", isPassed(fileData.score) ? "PASS" : "FAIL"],
+        [""],
+        ["DETAILED BREAKDOWN"],
         [""],
         ["Total Questions", stats?.totalQuestions || 0],
         ["Correct Answers", stats?.correctAnswers || 0],
@@ -201,35 +247,51 @@ const FileDetailPage = () => {
       // Generate filename
       const fileName = `${
         fileData.file_name.split(".")[0]
-      }_grading_report.xlsx`;
+      }_assessment_results.xlsx`;
 
       // Trigger download
       XLSX.writeFile(workbook, fileName);
-      toast.success("Report exported successfully!");
+      toast.success("Assessment results exported successfully!");
     } catch (error) {
       console.error("Export error:", error);
-      toast.error("Failed to export report");
+      toast.error("Failed to export assessment results");
     }
   };
 
   // Export to PDF (using print functionality)
   const printReport = () => {
     window.print();
+    toast.success("Print dialog opened");
+  };
+
+  const viewOriginalFile = () => {
+    if (fileData && fileData.file) {
+      window.open(fileData.file, "_blank");
+    } else {
+      toast.error("Original file not available");
+    }
   };
 
   if (isLoading) {
     return (
       <ProtectedRoute>
-        <div className="min-h-screen flex flex-col bg-purple-50">
-          <div className="flex gap-4 items-center m-4 mb-0">
-            <BackButton />
+        <div className="min-h-screen p-4 md:p-8 bg-purple-50">
+          <div className="flex gap-4 items-center mb-6">
+            <div className="w-24 h-10 bg-gray-300 rounded-md animate-pulse"></div>
+            <div className="h-5 w-56 bg-gray-300 rounded-md animate-pulse"></div>
           </div>
-          <div className="flex-1 flex items-center justify-center">
-            <div className="flex flex-col items-center bg-white p-8 rounded-lg shadow-md">
-              <div className="animate-spin h-12 w-12 mb-4 border-4 border-purple-500 border-t-transparent rounded-full"></div>
-              <p className="text-gray-700 font-medium">
-                Loading assessment details...
-              </p>
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6 animate-pulse">
+            <div className="h-8 w-3/4 bg-gray-300 rounded-md mb-4"></div>
+            <div className="h-6 w-1/3 bg-gray-200 rounded-md mb-6"></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
+            <div className="bg-white shadow-md rounded-lg p-6 h-64">
+              <div className="h-6 w-40 bg-gray-300 rounded-md mb-4"></div>
+              <div className="h-full w-full bg-gray-200 rounded-md"></div>
+            </div>
+            <div className="bg-white shadow-md rounded-lg p-6 h-64">
+              <div className="h-6 w-40 bg-gray-300 rounded-md mb-4"></div>
+              <div className="h-full w-full bg-gray-200 rounded-md"></div>
             </div>
           </div>
         </div>
@@ -241,397 +303,524 @@ const FileDetailPage = () => {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen flex flex-col pb-8 bg-purple-50 print:bg-white">
-        <div className="flex gap-4 items-center m-4 mb-6 print:hidden">
-          <BackButton />
-          <h1 className="text-3xl font-bold text-gray-800">
-            Assessment Details
-          </h1>
+      <div className="min-h-screen p-4 md:p-8 bg-purple-50 print:bg-white">
+        {/* Header with navigation and actions */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-6 print:hidden">
+          <div className="flex items-center gap-2">
+            <div className="text-gray-500 text-xs sm:text-sm hidden sm:flex items-center">
+              <span
+                className="hover:text-purple-600 cursor-pointer"
+                onClick={() => router.push("/module")}
+              >
+                Modules
+              </span>
+              <ChevronRight className="w-3 h-3 mx-1 text-gray-400" />
+              <span
+                className="hover:text-purple-600 cursor-pointer"
+                onClick={() => router.push(`/module/${moduleId}`)}
+              >
+                Module {moduleId}
+              </span>
+              <ChevronRight className="w-3 h-3 mx-1 text-gray-400" />
+              <span
+                className="hover:text-purple-600 cursor-pointer"
+                onClick={() =>
+                  router.push(`/module/${moduleId}/${assignmentId}`)
+                }
+              >
+                {assignmentTitle || `Assignment ${assignmentId}`}
+              </span>
+              <ChevronRight className="w-3 h-3 mx-1 text-gray-400" />
+              <span className="text-purple-600 font-medium truncate max-w-xs">
+                {fileData?.file_name || `File ${fileId}`}
+              </span>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={exportToExcel}
+              className="flex items-center gap-1.5 bg-light-2 hover:bg-light-1 text-white px-3 py-1.5 rounded-md text-sm transition-all duration-200 shadow-sm"
+            >
+              <FileDown size={16} />
+              <span>Export</span>
+            </button>
+            <button
+              onClick={printReport}
+              className="flex items-center gap-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 px-3 py-1.5 rounded-md text-sm transition-all duration-200 shadow-sm"
+            >
+              <Printer size={16} />
+              <span className="hidden sm:inline">Print</span>
+            </button>
+            <button
+              onClick={viewOriginalFile}
+              className="flex items-center gap-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 px-3 py-1.5 rounded-md text-sm transition-all duration-200 shadow-sm"
+            >
+              <File size={16} />
+              <span className="hidden sm:inline">View File</span>
+            </button>
+            <button
+              onClick={() =>
+                router.push(`/module/${moduleId}/${assignmentId}/report`)
+              }
+              className="flex items-center gap-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 px-3 py-1.5 rounded-md text-sm transition-all duration-200 shadow-sm"
+            >
+              <BarChart4 size={16} />
+              <span className="hidden sm:inline">Report</span>
+            </button>
+            <button
+              onClick={refreshData}
+              className="flex items-center gap-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 px-3 py-1.5 rounded-md text-sm transition-all duration-200 shadow-sm"
+              disabled={refreshing}
+            >
+              <RefreshCw
+                size={16}
+                className={refreshing ? "animate-spin" : ""}
+              />
+            </button>
+          </div>
         </div>
 
-        <div className="px-4 sm:px-6 max-w-7xl mx-auto w-full">
-          {fileData ? (
-            <>
-              {/* Header Section with Grade */}
-              <div className="flex flex-col md:flex-row gap-6 mb-6 print:flex-row">
-                {/* File Info Card */}
-                <div className="bg-white shadow-md rounded-lg p-6 flex-1">
-                  <div className="flex items-start">
-                    <div className="bg-purple-100 p-3 rounded-full mr-4">
-                      <FileText className="h-6 w-6 text-purple-600" />
+        {fileData ? (
+          <>
+            {/* File Summary Card */}
+            <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+              <div className="p-6 border-b border-gray-100">
+                <div className="flex flex-col sm:flex-row justify-between">
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2 print:text-2xl group flex items-center">
+                      Assessment Results
+                      <span className="ml-2 text-sm font-normal text-gray-500 hidden sm:inline">
+                        #{fileId}
+                      </span>
+                    </h1>
+                    <h2 className="text-lg text-gray-600 mb-1 flex items-center">
+                      <File className="w-4 h-4 mr-1.5 text-gray-500" />
+                      {fileData.file_name}
+                    </h2>
+                    <div className="flex flex-wrap gap-y-1 gap-x-4 mt-2 text-sm text-gray-500">
+                      <div className="flex items-center">
+                        <Calendar className="w-4 h-4 mr-1.5 text-purple-500" />
+                        <span>{assignmentTitle}</span>
+                      </div>
+                      {moduleTitle && (
+                        <div className="flex items-center">
+                          <span className="text-gray-400">•</span>
+                          <span className="ml-1.5">{moduleTitle}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex-1">
-                      <h2 className="text-xl font-bold text-gray-800 break-words mb-1">
-                        {fileData.file_name}
-                      </h2>
-                      <p className="text-sm text-gray-500 mb-4">
-                        Assessment ID: {fileId}
-                      </p>
+                  </div>
 
-                      <div className="flex flex-wrap gap-2 mt-4 print:hidden">
-                        <button
-                          onClick={exportToExcel}
-                          className="inline-flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md transition-colors duration-200"
+                  <div className="mt-4 sm:mt-0 flex items-start">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`flex items-center justify-center h-20 w-20 rounded-full ${getGradeColor(
+                          fileData.score
+                        )}`}
+                      >
+                        <span className="text-3xl font-bold">
+                          {getGradeLetter(fileData.score)}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex flex-col items-center">
+                        <span className="font-semibold text-lg">
+                          {fileData.score}%
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 text-xs rounded-full ${
+                            isPassed(fileData.score)
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
                         >
-                          <Download className="h-4 w-4 mr-1" />
-                          Export Excel
-                        </button>
-                        <button
-                          onClick={printReport}
-                          className="inline-flex items-center px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors duration-200"
-                        >
-                          <Printer className="h-4 w-4 mr-1" />
-                          Print Report
-                        </button>
+                          {isPassed(fileData.score) ? "PASS" : "FAIL"}
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Grade Card */}
-                <div className="bg-white shadow-md rounded-lg p-6 md:w-80 print:w-80">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-lg font-semibold text-gray-700">
-                      Final Grade
-                    </h3>
-                    <span
-                      className={`px-2 py-1 rounded-md text-xs font-bold ${
-                        isPassed(fileData.score)
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {isPassed(fileData.score) ? "PASS" : "FAIL"}
+              {/* Performance Metrics */}
+              <div className="bg-gray-50 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-white p-3 rounded-lg shadow-sm flex flex-col">
+                  <span className="text-xs text-gray-500 mb-1">Questions</span>
+                  <span className="text-xl font-bold text-gray-800">
+                    {stats?.totalQuestions || 0}
+                  </span>
+                  <div className="flex items-center mt-1 text-xs">
+                    <span className="text-green-600">
+                      {stats?.correctAnswers || 0} correct
+                    </span>
+                    <span className="mx-1">•</span>
+                    <span className="text-red-500">
+                      {(stats?.totalQuestions || 0) -
+                        (stats?.correctAnswers || 0)}{" "}
+                      incorrect
                     </span>
                   </div>
+                </div>
 
-                  <div className="flex items-center">
+                <div className="bg-white p-3 rounded-lg shadow-sm flex flex-col">
+                  <span className="text-xs text-gray-500 mb-1">
+                    Correctness
+                  </span>
+                  <span className="text-xl font-bold text-gray-800">
+                    {stats?.correctPercentage || 0}%
+                  </span>
+                  <div className="mt-1 w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
                     <div
-                      className={`flex items-center justify-center h-20 w-20 rounded-full ${getGradeColor(
-                        fileData.score
-                      )}`}
-                    >
-                      <span className="text-3xl font-bold">
-                        {getGradeLetter(fileData.score)}
-                      </span>
-                    </div>
-                    <div className="ml-4">
-                      <div className="text-3xl font-bold text-gray-800">
-                        {fileData.score}
-                        <span className="text-lg text-gray-500">/100</span>
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {stats?.correctAnswers || 0}/
-                        {stats?.totalQuestions || 0} correct
-                      </div>
-                    </div>
+                      className="h-full bg-green-500"
+                      style={{ width: `${stats?.correctPercentage || 0}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                <div className="bg-white p-3 rounded-lg shadow-sm flex flex-col">
+                  <span className="text-xs text-gray-500 mb-1">Status</span>
+                  <span className="text-xl font-bold text-gray-800">
+                    {isPassed(fileData.score) ? "Passed" : "Failed"}
+                  </span>
+                  <div className="flex items-center mt-1 text-xs">
+                    <span className="text-gray-500">
+                      Pass threshold: {passScore}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-white p-3 rounded-lg shadow-sm flex flex-col">
+                  <span className="text-xs text-gray-500 mb-1">
+                    Marks Awarded
+                  </span>
+                  <span className="text-xl font-bold text-gray-800">
+                    {stats?.totalMarksAwarded || 0}/
+                    {stats?.totalPossibleMarks || 0}
+                  </span>
+                  <div className="mt-1 w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-purple-500"
+                      style={{
+                        width: `${
+                          (stats?.totalMarksAwarded /
+                            (stats?.totalPossibleMarks || 1)) *
+                          100
+                        }%`,
+                      }}
+                    ></div>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Tab Navigation */}
-              <div className="mb-6 print:hidden">
-                <div className="flex border-b border-gray-200">
-                  <button
-                    onClick={() => setActiveTab("answers")}
-                    className={`py-3 px-4 font-medium text-sm ${
-                      activeTab === "answers"
-                        ? "text-purple-600 border-b-2 border-purple-600"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    Question Breakdown
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("summary")}
-                    className={`py-3 px-4 font-medium text-sm ${
-                      activeTab === "summary"
-                        ? "text-purple-600 border-b-2 border-purple-600"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    Performance Summary
-                  </button>
-                </div>
-              </div>
-
-              {/* Answers Table Card - shown when answers tab is active or when printing */}
-              {(activeTab === "answers" || !activeTab) && (
-                <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 overflow-hidden mb-6">
-                  <h3 className="text-xl font-semibold mb-4 text-gray-800 flex items-center">
-                    <DocumentChartBarIcon className="h-6 w-6 mr-2 text-purple-500" />
-                    Question Breakdown
-                  </h3>
-
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-3 py-3 sm:px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
-                            Q#
-                          </th>
-                          <th className="px-3 py-3 sm:px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Correct Answer
-                          </th>
-                          <th className="px-3 py-3 sm:px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Student's Answer
-                          </th>
-                          <th className="px-3 py-3 sm:px-6 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                            Result
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {fileData.answers.map((answer, index) => {
-                          const markingScheme =
-                            fileData.marking_scheme[answer.question_id];
-                          const marksForAnswer = answer.marks_for_answer || 0;
-                          const allocatedMarks = answer.allocated_marks;
-                          const isCorrect = marksForAnswer > 0;
-
-                          return (
-                            <tr
-                              key={answer.question_id}
-                              className={
-                                index % 2 === 0
-                                  ? "bg-white hover:bg-gray-50"
-                                  : "bg-gray-50 hover:bg-gray-100"
-                              }
-                            >
-                              {/* Question Number */}
-                              <td className="px-3 py-4 sm:px-6 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {answer.question_id}
-                              </td>
-
-                              {/* Correct Answer */}
-                              <td className="px-3 py-4 sm:px-6 text-sm text-gray-700">
-                                <div className="break-words">
-                                  {markingScheme.answer_text}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  Type:{" "}
-                                  {markingScheme.grading_type || "Standard"}
-                                </div>
-                              </td>
-
-                              {/* Student's Answer */}
-                              <td className="px-3 py-4 sm:px-6 text-sm text-gray-700">
-                                <div className="break-words">
-                                  {answer.student_answer}
-                                </div>
-                              </td>
-
-                              {/* Marks */}
-                              <td className="px-3 py-4 sm:px-6 whitespace-nowrap text-sm text-center">
-                                <div className="flex flex-col items-center">
-                                  <span
-                                    className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${
-                                      isCorrect
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-red-100 text-red-700"
-                                    }`}
-                                  >
-                                    {isCorrect ? (
-                                      <CheckCircle className="h-5 w-5" />
-                                    ) : (
-                                      <XCircle className="h-5 w-5" />
-                                    )}
-                                  </span>
-                                  <span className="mt-1 text-sm font-medium">
-                                    {marksForAnswer}/{allocatedMarks}
-                                  </span>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Summary Card - shown when summary tab is active or always when printing */}
-              {(activeTab === "summary" || true) && (
-                <div
-                  className={`bg-white shadow-md rounded-lg p-6 ${
-                    activeTab !== "summary" && !activeTab
-                      ? "hidden print:block"
-                      : ""
+            {/* Tab Navigation */}
+            <div className="mb-6 print:hidden">
+              <div className="flex border-b border-gray-200">
+                <button
+                  onClick={() => setActiveTab("answers")}
+                  className={`py-3 px-4 font-medium text-sm ${
+                    activeTab === "answers"
+                      ? "text-purple-600 border-b-2 border-purple-600"
+                      : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
-                  <h3 className="text-xl font-semibold mb-4 text-gray-800 flex items-center">
-                    <BarChart4 className="h-6 w-6 mr-2 text-purple-500" />
-                    Performance Summary
-                  </h3>
+                  Question Breakdown
+                </button>
+                <button
+                  onClick={() => setActiveTab("summary")}
+                  className={`py-3 px-4 font-medium text-sm ${
+                    activeTab === "summary"
+                      ? "text-purple-600 border-b-2 border-purple-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Performance Summary
+                </button>
+              </div>
+            </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Performance Metrics */}
-                    <div>
-                      <h4 className="font-medium text-gray-700 mb-3">
-                        Score Breakdown
-                      </h4>
-                      <div className="space-y-3">
-                        <div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="text-gray-600">
-                              Correct Answers
-                            </span>
-                            <span className="font-medium">
-                              {stats?.correctAnswers || 0}/
-                              {stats?.totalQuestions || 0}
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-green-500 h-2 rounded-full"
-                              style={{
-                                width: `${stats?.correctPercentage || 0}%`,
-                              }}
-                            ></div>
-                          </div>
-                        </div>
+            {/* Answers Table Card - shown when answers tab is active or when printing */}
+            {(activeTab === "answers" || !activeTab) && (
+              <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 overflow-hidden mb-6">
+                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center">
+                  <DocumentChartBarIcon className="h-5 w-5 mr-2 text-purple-500" />
+                  Question Breakdown
+                </h3>
 
-                        <div>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="text-gray-600">Overall Score</span>
-                            <span className="font-medium">
-                              {fileData.score}/100
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full ${
-                                isPassed(fileData.score)
-                                  ? "bg-green-500"
-                                  : "bg-red-500"
-                              }`}
-                              style={{ width: `${fileData.score}%` }}
-                            ></div>
-                          </div>
-                        </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-3 sm:px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                          Q#
+                        </th>
+                        <th className="px-3 py-3 sm:px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Correct Answer
+                        </th>
+                        <th className="px-3 py-3 sm:px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Student's Answer
+                        </th>
+                        <th className="px-3 py-3 sm:px-6 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+                          Result
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {fileData.answers.map((answer, index) => {
+                        const markingScheme =
+                          fileData.marking_scheme[answer.question_id];
+                        const marksForAnswer = answer.marks_for_answer || 0;
+                        const allocatedMarks = answer.allocated_marks;
+                        const isCorrect = marksForAnswer > 0;
 
-                        <div className="pt-2">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-gray-600 text-sm">
-                              Pass Threshold
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                isPassed(fileData.score)
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
-                              }`}
-                            >
-                              {isPassed(fileData.score) ? "PASSED" : "FAILED"}
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2 relative">
-                            <div
-                              className="absolute top-0 bottom-0 w-px bg-yellow-500"
-                              style={{ left: `${passScore}%` }}
-                            ></div>
-                            <div
-                              className={`h-2 rounded-full ${
-                                isPassed(fileData.score)
-                                  ? "bg-green-500"
-                                  : "bg-red-500"
-                              }`}
-                              style={{ width: `${fileData.score}%` }}
-                            ></div>
-                          </div>
-                          <div className="flex justify-between text-xs text-gray-500 mt-1">
-                            <span>0</span>
-                            <span className="text-yellow-600 font-medium">
-                              {passScore}% Pass Mark
-                            </span>
-                            <span>100</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                        return (
+                          <tr
+                            key={answer.question_id}
+                            className={
+                              index % 2 === 0
+                                ? "bg-white hover:bg-gray-50"
+                                : "bg-gray-50 hover:bg-gray-100"
+                            }
+                          >
+                            {/* Question Number */}
+                            <td className="px-3 py-4 sm:px-6 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {answer.question_id}
+                            </td>
 
-                    {/* Grade Information */}
-                    <div className="border-t pt-4 md:border-t-0 md:pt-0 md:border-l md:pl-6">
-                      <h4 className="font-medium text-gray-700 mb-3">
-                        Grade Information
-                      </h4>
+                            {/* Correct Answer */}
+                            <td className="px-3 py-4 sm:px-6 text-sm text-gray-700">
+                              <div className="break-words">
+                                {markingScheme.answer_text}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Type: {markingScheme.grading_type || "Standard"}
+                              </div>
+                            </td>
 
-                      <div className="flex items-center mb-4">
-                        <div
-                          className={`flex items-center justify-center h-16 w-16 rounded-full ${getGradeColor(
-                            fileData.score
-                          )}`}
-                        >
-                          <span className="text-2xl font-bold">
-                            {getGradeLetter(fileData.score)}
-                          </span>
-                        </div>
-                        <div className="ml-4">
-                          <p className="text-sm text-gray-500">Final Grade</p>
-                          <p className="text-2xl font-bold">
-                            {fileData.score}%
-                          </p>
-                        </div>
-                      </div>
+                            {/* Student's Answer */}
+                            <td className="px-3 py-4 sm:px-6 text-sm text-gray-700">
+                              <div className="break-words">
+                                {answer.student_answer}
+                              </div>
+                            </td>
 
-                      <div className="space-y-2">
-                        <div className="flex justify-between py-1 border-b border-gray-100">
-                          <span className="text-gray-600 text-sm">
-                            Total Questions
-                          </span>
+                            {/* Marks */}
+                            <td className="px-3 py-4 sm:px-6 whitespace-nowrap text-sm text-center">
+                              <div className="flex flex-col items-center">
+                                <span
+                                  className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${
+                                    isCorrect
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-red-100 text-red-700"
+                                  }`}
+                                >
+                                  {isCorrect ? (
+                                    <CheckCircle className="h-5 w-5" />
+                                  ) : (
+                                    <XCircle className="h-5 w-5" />
+                                  )}
+                                </span>
+                                <span className="mt-1 text-sm font-medium">
+                                  {marksForAnswer}/{allocatedMarks}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Summary Card - shown when summary tab is active or always when printing */}
+            {(activeTab === "summary" || true) && (
+              <div
+                className={`bg-white shadow-md rounded-lg p-6 ${
+                  activeTab !== "summary" && !activeTab
+                    ? "hidden print:block"
+                    : ""
+                }`}
+              >
+                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center">
+                  <BarChart4 className="h-5 w-5 mr-2 text-purple-500" />
+                  Performance Summary
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Performance Metrics */}
+                  <div>
+                    <h4 className="font-medium text-gray-700 mb-3">
+                      Score Breakdown
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-600">Correct Answers</span>
                           <span className="font-medium">
+                            {stats?.correctAnswers || 0}/
                             {stats?.totalQuestions || 0}
                           </span>
                         </div>
-                        <div className="flex justify-between py-1 border-b border-gray-100">
-                          <span className="text-gray-600 text-sm">
-                            Correct Answers
-                          </span>
-                          <span className="font-medium text-green-600">
-                            {stats?.correctAnswers || 0}
-                          </span>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-green-500 h-2 rounded-full"
+                            style={{
+                              width: `${stats?.correctPercentage || 0}%`,
+                            }}
+                          ></div>
                         </div>
-                        <div className="flex justify-between py-1 border-b border-gray-100">
-                          <span className="text-gray-600 text-sm">
-                            Incorrect Answers
-                          </span>
-                          <span className="font-medium text-red-600">
-                            {(stats?.totalQuestions || 0) -
-                              (stats?.correctAnswers || 0)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between py-1 border-b border-gray-100">
-                          <span className="text-gray-600 text-sm">
-                            Marks Awarded
-                          </span>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-600">Overall Score</span>
                           <span className="font-medium">
-                            {stats?.totalMarksAwarded || 0}/
-                            {stats?.totalPossibleMarks || 0}
+                            {fileData.score}/100
                           </span>
                         </div>
-                        <div className="flex justify-between py-1 border-b border-gray-100">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${
+                              isPassed(fileData.score)
+                                ? "bg-green-500"
+                                : "bg-red-500"
+                            }`}
+                            style={{ width: `${fileData.score}%` }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <div className="flex justify-between items-center mb-2">
                           <span className="text-gray-600 text-sm">
                             Pass Threshold
                           </span>
-                          <span className="font-medium text-yellow-600">
-                            {passScore}%
+                          <span
+                            className={`px-2 py-0.5 rounded text-xs font-medium ${
+                              isPassed(fileData.score)
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {isPassed(fileData.score) ? "PASSED" : "FAILED"}
                           </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2 relative">
+                          <div
+                            className="absolute top-0 bottom-0 w-px bg-yellow-500"
+                            style={{ left: `${passScore}%` }}
+                          ></div>
+                          <div
+                            className={`h-2 rounded-full ${
+                              isPassed(fileData.score)
+                                ? "bg-green-500"
+                                : "bg-red-500"
+                            }`}
+                            style={{ width: `${fileData.score}%` }}
+                          ></div>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                          <span>0</span>
+                          <span className="text-yellow-600 font-medium">
+                            {passScore}% Pass Mark
+                          </span>
+                          <span>100</span>
                         </div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Grade Information */}
+                  <div className="border-t pt-4 md:border-t-0 md:pt-0 md:border-l md:pl-6">
+                    <h4 className="font-medium text-gray-700 mb-3">
+                      Grade Information
+                    </h4>
+
+                    <div className="flex items-center mb-4">
+                      <div
+                        className={`flex items-center justify-center h-16 w-16 rounded-full ${getGradeColor(
+                          fileData.score
+                        )}`}
+                      >
+                        <span className="text-2xl font-bold">
+                          {getGradeLetter(fileData.score)}
+                        </span>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm text-gray-500">Final Grade</p>
+                        <p className="text-2xl font-bold">{fileData.score}%</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between py-1 border-b border-gray-100">
+                        <span className="text-gray-600 text-sm">
+                          Total Questions
+                        </span>
+                        <span className="font-medium">
+                          {stats?.totalQuestions || 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-gray-100">
+                        <span className="text-gray-600 text-sm">
+                          Correct Answers
+                        </span>
+                        <span className="font-medium text-green-600">
+                          {stats?.correctAnswers || 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-gray-100">
+                        <span className="text-gray-600 text-sm">
+                          Incorrect Answers
+                        </span>
+                        <span className="font-medium text-red-600">
+                          {(stats?.totalQuestions || 0) -
+                            (stats?.correctAnswers || 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-gray-100">
+                        <span className="text-gray-600 text-sm">
+                          Marks Awarded
+                        </span>
+                        <span className="font-medium">
+                          {stats?.totalMarksAwarded || 0}/
+                          {stats?.totalPossibleMarks || 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-gray-100">
+                        <span className="text-gray-600 text-sm">
+                          Pass Threshold
+                        </span>
+                        <span className="font-medium text-yellow-600">
+                          {passScore}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </>
-          ) : (
-            <div className="bg-white shadow-md rounded-lg p-6 text-center">
-              <p className="text-gray-500">File not found or failed to load</p>
-            </div>
-          )}
-        </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="bg-white shadow-md rounded-lg p-6 text-center">
+            <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-3" />
+            <p className="text-gray-700 font-medium mb-1">File not found</p>
+            <p className="text-gray-500 text-sm mb-4">
+              The assessment details could not be loaded
+            </p>
+            <button
+              onClick={() => router.push(`/module/${moduleId}/${assignmentId}`)}
+              className="px-4 py-2 text-sm text-white bg-purple-600 rounded-md hover:bg-purple-700"
+            >
+              Return to Assignment
+            </button>
+          </div>
+        )}
       </div>
-      <ToastContainer position="top-right" autoClose={3000} />
+      <ToastContainer position="top-right" autoClose={3000} theme="light" />
     </ProtectedRoute>
   );
 };
