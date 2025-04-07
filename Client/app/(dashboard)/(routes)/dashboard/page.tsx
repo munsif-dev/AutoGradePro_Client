@@ -117,7 +117,7 @@ const Dashboard = () => {
   const [quickActions, setQuickActions] = useState([
     { title: "Create New Module", icon: BookOpen, path: "/module/create" },
     { title: "Add Assignment", icon: FileText, path: "/assignment" },
-    { title: "View Reports", icon: PieChart, path: "/reports" },
+    { title: "View Reports", icon: PieChart, path: "/module/1/1/report" },
   ]);
 
   const router = useRouter();
