@@ -8,25 +8,31 @@ import { useRouter } from "next/navigation";
 interface AnswerRow {
   id?: number;
   number: number;
+  question: string; // New field for question text
   answer: string;
   marks: string;
   caseSensitive: boolean;
   orderSensitive: boolean;
   rangeSensitive: boolean;
+  partialMatching: boolean; // New field for partial matching on lists
+  semanticThreshold: number; // New field for semantic threshold on short phrases
   gradingType: "one-word" | "short-phrase" | "list" | "numerical";
-  useRange?: boolean; // New field for numerical answers
-  range?: { min: number; max: number }; // Only for numerical answers
+  useRange?: boolean; // For numerical answers
+  range?: { min: number; max: number; tolerance_percent?: number }; // Enhanced range with tolerance
 }
 
 const MarkingSchemeForm: React.FC = () => {
   const [rows, setRows] = useState<AnswerRow[]>([
     {
       number: 1,
+      question: "", // New field for question text
       answer: "",
       marks: "",
       caseSensitive: false,
       orderSensitive: false,
       rangeSensitive: false,
+      partialMatching: false, // Default no partial matching
+      semanticThreshold: 0.7, // Default semantic threshold
       gradingType: "one-word",
     },
   ]);
@@ -53,14 +59,17 @@ const MarkingSchemeForm: React.FC = () => {
         const formattedAnswers = answers.map((answer: any, index: number) => ({
           id: answer.id,
           number: index + 1,
+          question: answer.question_text || "", // Get question text from backend
           answer: answer.answer_text,
           marks: answer.marks.toString(),
           caseSensitive: answer.case_sensitive || false,
           orderSensitive: answer.order_sensitive || false,
           rangeSensitive: answer.range_sensitive || false,
+          partialMatching: answer.partial_matching || false, // Get partial matching setting
+          semanticThreshold: answer.semantic_threshold || 0.7, // Get semantic threshold
           gradingType: answer.grading_type || "one-word",
-          useRange: answer.use_range || false,
-          range: answer.range || { min: 0, max: 0 },
+          useRange: answer.range_sensitive || false,
+          range: answer.range || { min: 0, max: 0, tolerance_percent: 0 }, // Include tolerance
         }));
         setRows(formattedAnswers);
       }
@@ -115,11 +124,14 @@ const MarkingSchemeForm: React.FC = () => {
     const newRow: AnswerRow = {
       id: Date.now(),
       number: rows.length + 1,
+      question: "", // New field for question text
       answer: "",
       marks: "",
       caseSensitive: false,
       orderSensitive: false,
       rangeSensitive: false,
+      partialMatching: false, // New field for partial matching
+      semanticThreshold: 0.7, // New field for semantic threshold
       gradingType: "one-word",
     };
     const updatedRows = [
@@ -154,11 +166,14 @@ const MarkingSchemeForm: React.FC = () => {
       pass_score: passScore,
       answers: rows.map((row) => ({
         id: row.id,
+        question_text: row.question, // Include question text field
         answer_text: row.answer,
         marks: parseInt(row.marks, 10),
         case_sensitive: row.caseSensitive,
         order_sensitive: row.orderSensitive,
         range_sensitive: row.rangeSensitive,
+        partial_matching: row.partialMatching, // Include partial matching field
+        semantic_threshold: row.semanticThreshold, // Include semantic threshold
         grading_type: row.gradingType,
         use_range: row.useRange || false,
         range: row.range,
@@ -234,9 +249,29 @@ const MarkingSchemeForm: React.FC = () => {
                 </div>
               </div>
 
+              {/* Question Text Input */}
+              <div className="mb-3">
+                <label htmlFor={`question-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
+                  Question Text (for context):
+                </label>
+                <textarea
+                  id={`question-${index}`}
+                  value={row.question}
+                  onChange={(e) =>
+                    handleChange(index, "question", e.target.value)
+                  }
+                  placeholder="Enter Question Text"
+                  rows={2}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:border-blue-400 transition-all"
+                />
+              </div>
+
               {/* Answer Input & Marks Input in the Same Line */}
               <div className="flex gap-4 mb-3">
                 <div className="flex-1">
+                  <label htmlFor={`answer-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
+                    Answer:
+                  </label>
                   <input
                     id={`answer-${index}`}
                     type="text"
@@ -249,6 +284,9 @@ const MarkingSchemeForm: React.FC = () => {
                   />
                 </div>
                 <div className="w-1/4">
+                  <label htmlFor={`marks-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
+                    Marks:
+                  </label>
                   <input
                     id={`marks-${index}`}
                     type="number"

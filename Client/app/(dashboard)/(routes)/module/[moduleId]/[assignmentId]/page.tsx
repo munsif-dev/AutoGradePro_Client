@@ -76,6 +76,7 @@ const AssignmentDetailPage = () => {
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<FileDetail[]>([]);
   const [passScore, setPassScore] = useState(0);
+  const [hasMarkingScheme, setHasMarkingScheme] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [sortField, setSortField] = useState<
@@ -139,8 +140,10 @@ const AssignmentDetailPage = () => {
       const response = await api.get(
         `/api/assignment/${assignmentId}/marking-scheme/detail/`
       );
-      const { pass_score } = response.data;
+      const { pass_score, answers } = response.data;
       setPassScore(pass_score ?? 40);
+      // Check if marking scheme is configured by checking if answers exist and are not empty
+      setHasMarkingScheme(answers && answers.length > 0);
 
       // Update grading stats with pass score
       setGradingStats((prev) => ({
@@ -281,6 +284,38 @@ const AssignmentDetailPage = () => {
       // Error handling done in simulateGradingProcess
     } finally {
       setIsGrading(false);
+    }
+  };
+
+  const clearGradingResults = async () => {
+    if (!assignmentId || !window.confirm("Are you sure you want to clear all grading results? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const response = await api.delete(
+        `/api/assignment/${assignmentId}/clear-grading-results/`
+      );
+      
+      // Reset scores in the UI
+      setUploadedFiles(prevFiles => 
+        prevFiles.map(file => ({ ...file, score: undefined }))
+      );
+      
+      // Update stats
+      setGradingStats(prevStats => ({
+        ...prevStats,
+        completedFiles: 0,
+        totalScore: 0,
+        averageScore: 0,
+        passedFiles: 0,
+        failedFiles: 0
+      }));
+      
+      toast.success("Grading results cleared successfully!");
+    } catch (error) {
+      console.error("Error clearing grading results:", error);
+      toast.error("Failed to clear grading results");
     }
   };
 
@@ -622,10 +657,10 @@ const AssignmentDetailPage = () => {
                     Marking Scheme
                   </span>
                   <span className="text-md font-medium text-gray-800">
-                    {passScore > 0 ? (
+                    {hasMarkingScheme ? (
                       <span className="text-green-600">Configured</span>
                     ) : (
-                      <span className="text-amber-600">Not Set</span>
+                      <span className="text-amber-600">Not Configured</span>
                     )}
                   </span>
                   <div className="mt-1">
@@ -638,7 +673,7 @@ const AssignmentDetailPage = () => {
                       className="text-xs text-purple-600 hover:text-purple-700 flex items-center"
                     >
                       <CheckSquare className="w-3 h-3 mr-1" />
-                      {passScore > 0 ? "Edit" : "Create"} Scheme
+                      {hasMarkingScheme ? "Edit" : "Create"} Scheme
                     </button>
                   </div>
                 </div>
@@ -660,12 +695,13 @@ const AssignmentDetailPage = () => {
 
                 <button
                   onClick={gradeSubmissions}
-                  disabled={isGrading || uploadedFiles.length === 0}
+                  disabled={isGrading || uploadedFiles.length === 0 || !hasMarkingScheme}
                   className={`flex items-center gap-2 px-4 py-2 ${
-                    isGrading || uploadedFiles.length === 0
+                    isGrading || uploadedFiles.length === 0 || !hasMarkingScheme
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-green-600 hover:bg-green-700"
                   } text-white rounded-md transition shadow-sm`}
+                  title={!hasMarkingScheme ? "Marking scheme must be configured before grading" : ""}
                 >
                   {isGrading ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -673,6 +709,20 @@ const AssignmentDetailPage = () => {
                     <FileText className="w-4 h-4" />
                   )}
                   <span>{isGrading ? "Grading..." : "Grade Files"}</span>
+                </button>
+                
+                <button
+                  onClick={clearGradingResults}
+                  disabled={isGrading || uploadedFiles.filter(f => f.score !== undefined && f.score !== null).length === 0}
+                  className={`flex items-center gap-2 px-4 py-2 ${
+                    isGrading || uploadedFiles.filter(f => f.score !== undefined && f.score !== null).length === 0
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-red-500 hover:bg-red-600"
+                  } text-white rounded-md transition shadow-sm`}
+                  title="Clear all grading results"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Clear Grading</span>
                 </button>
               </div>
             </div>
