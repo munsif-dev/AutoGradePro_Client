@@ -64,7 +64,7 @@ const CreateModule = () => {
               <div>
                 <label 
                   htmlFor="name" 
-                  className="block text-sm font-medium text-gray-700 mb-2 flex items-center"
+                  className=" text-sm font-medium text-gray-700 mb-2 flex items-center"
                 >
                   <BookOpen className="w-4 h-4 mr-2 text-light-2" />
                   Module Name
@@ -83,7 +83,7 @@ const CreateModule = () => {
               <div>
                 <label 
                   htmlFor="code" 
-                  className="block text-sm font-medium text-gray-700 mb-2 flex items-center"
+                  className=" text-sm font-medium text-gray-700 mb-2 flex items-center"
                 >
                   <Tag className="w-4 h-4 mr-2 text-light-2" />
                   Module Code
@@ -102,7 +102,7 @@ const CreateModule = () => {
               <div>
                 <label 
                   htmlFor="description" 
-                  className="block text-sm font-medium text-gray-700 mb-2 flex items-center"
+                  className=" text-sm font-medium text-gray-700 mb-2 flex items-center"
                 >
                   <AlignLeft className="w-4 h-4 mr-2 text-light-2" />
                   Description
