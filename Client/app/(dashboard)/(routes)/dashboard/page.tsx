@@ -45,8 +45,8 @@ ChartJS.register(
 );
 
 // Function to format dates nicely
-const formatDate = (dateString) => {
-  const options = { year: "numeric", month: "short", day: "numeric" };
+const formatDate = (dateString: string): string => {
+  const options: Intl.DateTimeFormatOptions = { year: "numeric", month: "short", day: "numeric" };
   return new Date(dateString).toLocaleDateString(undefined, options);
 };
 
@@ -155,7 +155,7 @@ const Dashboard = () => {
   const lineChartOptions = {
     responsive: true,
     interaction: {
-      mode: "index",
+      mode: "index" as const,
       intersect: false,
     },
     plugins: {
@@ -291,7 +291,7 @@ const Dashboard = () => {
         {/* Header with welcome message */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
-            <h1 className="text-2xl md:text-4xl font-extrabold text-dark-1 tracking-wide">
+            <h1 className="text-2xl md:text-3xl font-bold text-dark-1 tracking-wide">
               Welcome to your <span className="text-light-2">Dashboard</span>
             </h1>
             <p className="text-gray-600 mt-1">
@@ -319,7 +319,7 @@ const Dashboard = () => {
         </div>
 
         {/* Date range filter */}
-        <div className="mb-6 flex items-center space-x-2 p-3 bg-white rounded-lg shadow-sm">
+        <div className="mb-6 flex items-center space-x-2 p-4 bg-white rounded-lg shadow-md">
           <Filter className="text-gray-500 w-5 h-5" />
           <span className="text-gray-700 mr-3">Filter by:</span>
           <div className="flex space-x-2">
@@ -341,7 +341,7 @@ const Dashboard = () => {
 
         {/* Quick actions section */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-dark-1 mb-4 flex items-center">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
             <Activity className="w-5 h-5 mr-2 text-light-2" />
             Quick Actions
           </h2>
@@ -350,7 +350,7 @@ const Dashboard = () => {
               <div
                 key={index}
                 onClick={() => router.push(action.path)}
-                className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer flex items-center space-x-3 border-l-4 border-light-2"
+                className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center space-x-3 border-l-4 border-light-2"
               >
                 <div className="bg-purple-100 p-3 rounded-lg">
                   <action.icon className="w-6 h-6 text-light-2" />
@@ -380,10 +380,10 @@ const Dashboard = () => {
               </>
             ) : (
               <>
-                <div className="bg-white p-6 rounded-lg shadow-lg text-center flex-1 hover:shadow-xl transition-shadow duration-300 transform hover:-translate-y-1">
+                <div className="bg-white p-6 rounded-lg shadow-md text-center flex-1 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
                   <div className="flex justify-center mb-3">
                     <div className="bg-blue-100 p-3 rounded-full">
-                      <BookOpen className="w-7 h-7 text-blue-500" />
+                      <BookOpen className="w-7 h-7 text-purple-500" />
                     </div>
                   </div>
                   <h2 className="text-lg font-semibold text-dark-1 mb-1">
@@ -399,7 +399,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-lg shadow-lg text-center flex-1 hover:shadow-xl transition-shadow duration-300 transform hover:-translate-y-1">
+                <div className="bg-white p-6 rounded-lg shadow-md text-center flex-1 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
                   <div className="flex justify-center mb-3">
                     <div className="bg-green-100 p-3 rounded-full">
                       <FileText className="w-7 h-7 text-green-500" />
@@ -418,7 +418,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-lg shadow-lg text-center flex-1 hover:shadow-xl transition-shadow duration-300 transform hover:-translate-y-1">
+                <div className="bg-white p-6 rounded-lg shadow-md text-center flex-1 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
                   <div className="flex justify-center mb-3">
                     <div className="bg-orange-100 p-3 rounded-full">
                       <Upload className="w-7 h-7 text-orange-500" />
@@ -432,15 +432,15 @@ const Dashboard = () => {
                   ) : (
                     <AnimatedCounter value={stats.files_uploaded} />
                   )}
-                  <div className="mt-2 text-sm text-gray-500">
+                  <div className="mt-2 text-sm text-gray-500 bg-orange-50 px-2 py-1 rounded-full inline-block">
                     All submissions
                   </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-lg shadow-lg text-center flex-1 hover:shadow-xl transition-shadow duration-300 transform hover:-translate-y-1">
+                <div className="bg-white p-6 rounded-lg shadow-md text-center flex-1 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
                   <div className="flex justify-center mb-3">
                     <div className="bg-purple-100 p-3 rounded-full">
-                      <CheckSquare className="w-7 h-7 text-purple-500" />
+                      <CheckSquare className="w-7 h-7 text-purple-600" />
                     </div>
                   </div>
                   <h2 className="text-lg font-semibold text-dark-1 mb-1">
@@ -451,7 +451,7 @@ const Dashboard = () => {
                   ) : (
                     <AnimatedCounter value={stats.submissions_received} />
                   )}
-                  <div className="mt-2 text-sm text-gray-500">
+                  <div className="mt-2 text-sm text-gray-500 bg-purple-50 px-2 py-1 rounded-full inline-block">
                     Ready for grading
                   </div>
                 </div>
