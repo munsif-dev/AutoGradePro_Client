@@ -808,7 +808,7 @@ const MarkingSchemeForm: React.FC = () => {
                               <input
                                 id={`useRange-${index}`}
                                 type="checkbox"
-                                checked={row.useRange || false}
+                                //checked={row.useRange || false}
                                 onChange={(e) => handleChange(index, "useRange", e.target.checked)}
                                 className="h-4 w-4 text-light-2 focus:ring-light-2 border-gray-300 rounded"
                               />
