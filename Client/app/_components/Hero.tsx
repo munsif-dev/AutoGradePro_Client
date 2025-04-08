@@ -20,7 +20,7 @@ const Hero = () => {
             width={526}
             height={576}
             alt="Hero Image"
-            src="/Hero_Image.png"
+            src="/Hero_image.png"
           />
         </motion.div>
         <div className="w-1/2 flex flex-col  space-y-3">

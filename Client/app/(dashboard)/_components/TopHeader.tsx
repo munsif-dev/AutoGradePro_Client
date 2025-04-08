@@ -62,7 +62,11 @@ const TopHeader = ({
     api.get("/api/lecturer/details/")
       .then((response) => {
         const data = response.data;
-        setProfilePicture(data.profile_picture);
+        setProfilePicture(data.profile_picture ? 
+          (data.profile_picture.startsWith('http') ? 
+            data.profile_picture : 
+            `${process.env.NEXT_PUBLIC_DJANGO_API_URL}${data.profile_picture}`) 
+          : null);
         if (data.user) {
           const { first_name, last_name, email } = data.user;
           setUserName(`${first_name || ''} ${last_name || ''}`);
