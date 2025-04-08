@@ -25,6 +25,7 @@ import {
   Loader2,
   ChevronRight,
   FileUp,
+  Info,
 } from "lucide-react";
 
 interface AnswerRow {
@@ -42,15 +43,19 @@ interface AnswerRow {
   useRange?: boolean;
   range?: { min: number; max: number; tolerance_percent?: number };
   expanded?: boolean; // For UI expansion/collapse
+  // New fields to track state
+  isNew?: boolean;
+  isModified?: boolean;
 }
 
 const MarkingSchemeForm: React.FC = () => {
+  // Main state
   const [rows, setRows] = useState<AnswerRow[]>([
     {
       number: 1,
       question: "",
       answer: "",
-      marks: "",
+      marks: "10", // Default to "10" as string to avoid empty field validation error
       caseSensitive: false,
       orderSensitive: false,
       rangeSensitive: false,
@@ -58,8 +63,11 @@ const MarkingSchemeForm: React.FC = () => {
       semanticThreshold: 0.7,
       gradingType: "one-word",
       expanded: true, // First row expanded by default
+      isNew: true, // Track that this is a new row
     },
   ]);
+  
+  // Other state variables
   const [title, setTitle] = useState<string>("");
   const { assignmentId, moduleId } = useParams();
   const [markingSchemeId, setMarkingSchemeId] = useState<number | null>(null);
@@ -73,7 +81,11 @@ const MarkingSchemeForm: React.FC = () => {
   const [isParsingFile, setIsParsingFile] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  
+  // Track whether marking scheme has been modified since loading
+  const [hasChanges, setHasChanges] = useState<boolean>(false);
 
+  // Fetch existing marking scheme when the component loads
   const fetchMarkingScheme = async () => {
     if (!assignmentId) return;
     setIsLoading(true);
@@ -103,7 +115,7 @@ const MarkingSchemeForm: React.FC = () => {
           number: index + 1,
           question: answer.question_text || "",
           answer: answer.answer_text,
-          marks: answer.marks.toString(),
+          marks: answer.marks.toString(), // Convert to string for form input
           caseSensitive: answer.case_sensitive || false,
           orderSensitive: answer.order_sensitive || false,
           rangeSensitive: answer.range_sensitive || false,
@@ -113,6 +125,7 @@ const MarkingSchemeForm: React.FC = () => {
           useRange: answer.range_sensitive || false,
           range: answer.range || { min: 0, max: 0, tolerance_percent: 0 },
           expanded: false, // All collapsed initially except first
+          isModified: false, // Track that this is an existing row
         }));
         
         // Make first row expanded
@@ -124,6 +137,7 @@ const MarkingSchemeForm: React.FC = () => {
       }
 
       setIsLoading(false);
+      setHasChanges(false); // Reset changes flag
     } catch (error: any) {
       if (error.response && error.response.status === 404) {
         console.log("No existing marking scheme found. Creating a new one.");
@@ -141,41 +155,80 @@ const MarkingSchemeForm: React.FC = () => {
     fetchMarkingScheme();
   }, [assignmentId]);
 
+  // Handle changes to form fields
   const handleChange = (index: number, field: keyof AnswerRow, value: any) => {
     const updatedRows = [...rows];
     updatedRows[index] = {
       ...updatedRows[index],
       [field]: value,
+      isModified: true, // Mark this row as modified
     };
 
-    // Enforce logic based on gradingType
+    // Enforce business logic based on grading type
     const gradingType = updatedRows[index].gradingType;
-    if (gradingType === "one-word" || gradingType === "short-phrase") {
+    
+    if (gradingType === "one-word") {
       updatedRows[index].orderSensitive = false;
       updatedRows[index].rangeSensitive = false;
-    } else if (gradingType === "list") {
+      updatedRows[index].useRange = false;
+      // Don't force case sensitivity - let user decide
+    } 
+    else if (gradingType === "short-phrase") {
+      updatedRows[index].orderSensitive = false;
       updatedRows[index].rangeSensitive = false;
-    } else if (gradingType === "numerical") {
+      updatedRows[index].useRange = false;
+      // Short phrases typically benefit from semantic matching
+    } 
+    else if (gradingType === "list") {
+      updatedRows[index].rangeSensitive = false;
+      updatedRows[index].useRange = false;
+      // For lists, partial matching is often useful
+      if (field === "gradingType") {
+        updatedRows[index].partialMatching = true;
+      }
+    } 
+    else if (gradingType === "numerical") {
+      // Numerical answers are never case sensitive
       updatedRows[index].caseSensitive = false;
       updatedRows[index].orderSensitive = false;
-      updatedRows[index].rangeSensitive = true;
-
-      // Reset range if `useRange` is false
-      if (!updatedRows[index].useRange) {
-        updatedRows[index].range = { min: 0, max: 0 };
+      
+      // Handle range settings
+      if (field === "gradingType") {
+        // When switching to numerical, enable range by default with sensible defaults
+        updatedRows[index].rangeSensitive = true;
+        updatedRows[index].useRange = true;
+        
+        // If there's a numeric answer, use it as the base for the range
+        const numericValue = parseFloat(updatedRows[index].answer);
+        if (!isNaN(numericValue)) {
+          updatedRows[index].range = {
+            min: Math.floor(numericValue * 0.95), // 5% below
+            max: Math.ceil(numericValue * 1.05),  // 5% above
+            tolerance_percent: 5
+          };
+        } else {
+          updatedRows[index].range = { min: 0, max: 0, tolerance_percent: 5 };
+        }
+      }
+      
+      // Update rangeSensitive based on useRange
+      if (field === "useRange") {
+        updatedRows[index].rangeSensitive = value;
       }
     }
 
     setRows(updatedRows);
+    setHasChanges(true);
   };
 
+  // Add a new question row
   const addRow = (index: number) => {
     const newRow: AnswerRow = {
-      id: Date.now(),
+      id: Date.now(), // Temporary ID for frontend tracking
       number: rows.length + 1,
       question: "",
       answer: "",
-      marks: "",
+      marks: "10", // Default to 10 marks
       caseSensitive: false,
       orderSensitive: false,
       rangeSensitive: false,
@@ -183,6 +236,7 @@ const MarkingSchemeForm: React.FC = () => {
       semanticThreshold: 0.7,
       gradingType: "one-word",
       expanded: true, // New rows should be expanded
+      isNew: true,    // Flag as a new row
     };
     const updatedRows = [
       ...rows.slice(0, index + 1),
@@ -190,14 +244,17 @@ const MarkingSchemeForm: React.FC = () => {
       ...rows.slice(index + 1),
     ];
 
+    // Renumber rows
     const renumberedRows = updatedRows.map((row, i) => ({
       ...row,
       number: i + 1,
     }));
 
     setRows(renumberedRows);
+    setHasChanges(true);
   };
 
+  // Delete a question row
   const deleteRow = (index: number) => {
     // Confirm before deleting
     if (rows.length <= 1) {
@@ -211,9 +268,11 @@ const MarkingSchemeForm: React.FC = () => {
       number: i + 1,
     }));
     setRows(renumberedRows);
+    setHasChanges(true);
     toast.info("Question deleted");
   };
 
+  // Toggle row expansion (collapse/expand)
   const toggleRowExpansion = (index: number) => {
     const updatedRows = [...rows];
     updatedRows[index] = {
@@ -234,6 +293,13 @@ const MarkingSchemeForm: React.FC = () => {
     if (!allowedTypes.some(ext => fileExt.endsWith(ext))) {
       toast.error(`Unsupported file type. Please upload DOCX, PDF, XLSX, or TXT files.`);
       return;
+    }
+    
+    // If we have existing scheme, confirm replacement
+    if (hasChanges || rows.length > 1 || (rows.length === 1 && rows[0].answer)) {
+      if (!window.confirm(`This will replace your current marking scheme. Any unsaved changes will be lost. Continue?`)) {
+        return;
+      }
     }
     
     setIsParsingFile(true);
@@ -259,17 +325,9 @@ const MarkingSchemeForm: React.FC = () => {
       const parsedItems = response.data.items;
       
       if (parsedItems && parsedItems.length > 0) {
-        // If we have existing marking scheme, confirm replacement
-        if (rows.length > 1 || (rows.length === 1 && rows[0].answer)) {
-          if (!window.confirm(`This will replace your current marking scheme with ${parsedItems.length} questions from the uploaded file. Continue?`)) {
-            setIsParsingFile(false);
-            return;
-          }
-        }
-        
         // Convert parsed items to our row format
-        const newRows = parsedItems.map((item: { number: any; question: any; answer: any; marks: any; caseSensitive: any; orderSensitive: any; rangeSensitive: any; gradingType: string; partialMatching: any; }) => ({
-          number: item.number,
+        const newRows = parsedItems.map((item, index) => ({
+          number: index + 1, // Ensure sequential numbering
           question: item.question || "",
           answer: item.answer,
           marks: String(item.marks || 10),
@@ -279,27 +337,43 @@ const MarkingSchemeForm: React.FC = () => {
           partialMatching: item.partialMatching || (item.gradingType === 'list'),
           semanticThreshold: item.gradingType === 'short-phrase' ? 0.7 : 0.5,
           gradingType: item.gradingType || "one-word",
-          expanded: true, // Expand all imported items for review
+          expanded: index === 0, // Only expand first item
           useRange: item.gradingType === 'numerical',
-          range: item.gradingType === 'numerical' ? { min: 0, max: 0, tolerance_percent: 5 } : undefined
+          range: item.gradingType === 'numerical' ? 
+            { min: 0, max: 0, tolerance_percent: 5 } : undefined,
+          isNew: true, // Mark as new for proper handling during save
         }));
         
         setRows(newRows);
+        setHasChanges(true);
         toast.success(`Successfully imported ${newRows.length} questions from ${file.name}`);
       } else {
-        toast.warning("No valid questions or answers found in the file. Please check the format and try again.");
+        toast.warning("No valid questions found in the file. Please check the format and try again.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error parsing file:", error);
       toast.error(`Failed to process file: ${error.response?.data?.error || "Unknown error"}`);
     } finally {
       setIsParsingFile(false);
       setUploadProgress(0);
+      
+      // Reset the file input so the same file can be uploaded again if needed
+      const fileInput = document.getElementById('schemeFile') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
     }
   };
 
+  // Form validation and submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // If no changes, no need to save
+    if (!hasChanges && markingSchemeId) {
+      toast.info("No changes to save");
+      router.push(`/module/${moduleId}/${assignmentId}`);
+      return;
+    }
+    
     setIsSaving(true);
 
     // Basic validation
@@ -347,49 +421,58 @@ const MarkingSchemeForm: React.FC = () => {
       return;
     }
 
+    // Prepare data for submission
     const markingSchemeData = {
       assignment: assignmentId,
       title: title.trim() || `Assignment ${assignmentId} Marking Scheme`,
       pass_score: passScore,
       answers: rows.map((row) => ({
-        id: row.id,
+        id: row.id, // Include ID for existing rows, backend will handle new rows
         question_text: row.question,
         answer_text: row.answer.trim(),
         marks: parseInt(row.marks, 10),
         case_sensitive: row.caseSensitive,
         order_sensitive: row.orderSensitive,
-        range_sensitive: row.rangeSensitive,
+        range_sensitive: row.rangeSensitive || (row.gradingType === "numerical" && row.useRange),
         partial_matching: row.partialMatching,
         semantic_threshold: row.semanticThreshold,
         grading_type: row.gradingType,
-        use_range: row.useRange || false,
-        range: row.range,
+        range: row.gradingType === "numerical" && row.useRange ? row.range : null,
       })),
     };
 
     try {
+      // Update or create marking scheme based on markingSchemeId
       if (markingSchemeId) {
         await api.put(
           `/api/assignment/${assignmentId}/marking-scheme/detail/`,
           markingSchemeData
         );
         toast.success("Marking Scheme updated successfully!");
-        setTimeout(() => {
-          router.push(`/module/${moduleId}/${assignmentId}`);
-        }, 1500);
       } else {
         await api.post(
           `/api/assignment/${assignmentId}/marking-scheme/`,
           markingSchemeData
         );
         toast.success("Marking Scheme created successfully!");
-        setTimeout(() => {
-          router.push(`/module/${moduleId}/${assignmentId}`);
-        }, 1500);
       }
-    } catch (error) {
+      
+      // Reset change tracking
+      setHasChanges(false);
+      
+      // Redirect after a short delay to allow toast to be visible
+      setTimeout(() => {
+        router.push(`/module/${moduleId}/${assignmentId}`);
+      }, 1500);
+    } catch (error: any) {
       console.error("Error submitting marking scheme:", error);
-      toast.error("Failed to submit marking scheme. Please try again.");
+      
+      // More specific error message based on error response
+      if (error.response?.data?.error) {
+        toast.error(`Error: ${error.response.data.error}`);
+      } else {
+        toast.error("Failed to submit marking scheme. Please try again.");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -410,7 +493,30 @@ const MarkingSchemeForm: React.FC = () => {
         return { icon: <Type className="w-4 h-4" />, label: "One Word" };
     }
   };
+  
+  // Tooltip component for better UI clarity
+  const Tooltip = ({ children, text }: { children: React.ReactNode, text: string }) => {
+    const [isVisible, setIsVisible] = useState(false);
+    
+    return (
+      <div className="relative inline-block">
+        <div
+          onMouseEnter={() => setIsVisible(true)}
+          onMouseLeave={() => setIsVisible(false)}
+        >
+          {children}
+        </div>
+        {isVisible && (
+          <div className="absolute z-10 w-60 px-3 py-2 text-xs text-white bg-gray-700 rounded-md shadow-lg bottom-full left-1/2 transform -translate-x-1/2 -translate-y-2">
+            {text}
+            <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 rotate-45 bg-gray-700"></div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
+  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-purple-50 p-8">
@@ -431,7 +537,7 @@ const MarkingSchemeForm: React.FC = () => {
   return (
     <div className="min-h-screen bg-purple-50">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center m-4">
-        <div className="text-gray-500 text-xs sm:text-sm hidden sm:flex items-center">
+        <div className="text-gray-500 text-xs sm:text-sm hidden sm:flex items-center mt-8">
           <span
             className="hover:text-purple-600 cursor-pointer"
             onClick={() => router.push("/module")}
@@ -563,16 +669,22 @@ const MarkingSchemeForm: React.FC = () => {
             
             <div className="flex items-center mt-4 md:mt-0 gap-3">
               <div className="flex items-center bg-purple-50 px-3 py-2 rounded-lg">
-                <label htmlFor="passScore" className="text-sm font-medium text-dark-1 mr-2">
-                  Pass Score:
-                </label>
+                <Tooltip text="Minimum score (out of 100) required to pass this assessment.">
+                  <label htmlFor="passScore" className="text-sm font-medium text-dark-1 mr-2 flex items-center">
+                    Pass Score:
+                    <Info className="w-3.5 h-3.5 ml-1 text-gray-400" />
+                  </label>
+                </Tooltip>
                 <input
                   id="passScore"
                   type="number"
                   min="0"
                   max="100"
                   value={passScore}
-                  onChange={(e) => setPassScore(parseInt(e.target.value))}
+                  onChange={(e) => {
+                    setPassScore(parseInt(e.target.value));
+                    setHasChanges(true);
+                  }}
                   className="w-16 border border-gray-300 rounded-md px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-light-2"
                 />
                 <span className="ml-1 text-gray-500">%</span>
@@ -684,8 +796,11 @@ const MarkingSchemeForm: React.FC = () => {
                   <div className="p-4 border-t border-gray-100">
                     {/* Question text */}
                     <div className="mb-4">
-                      <label htmlFor={`question-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                        Question Text (for context):
+                      <label htmlFor={`question-${index}`} className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                        <span>Question Text (for context):</span>
+                        <Tooltip text="Adding the question text helps AI understand the context for short phrase matching.">
+                          <Info className="w-3.5 h-3.5 ml-1 text-gray-400 cursor-help" />
+                        </Tooltip>
                       </label>
                       <textarea
                         id={`question-${index}`}
@@ -731,8 +846,11 @@ const MarkingSchemeForm: React.FC = () => {
                     {/* Grading type and options */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div>
-                        <label htmlFor={`gradingType-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                          Grading Type:
+                        <label htmlFor={`gradingType-${index}`} className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                          <span>Grading Type:</span>
+                          <Tooltip text="Select how this answer should be graded. Different types use different matching methods.">
+                            <Info className="w-3.5 h-3.5 ml-1 text-gray-400 cursor-help" />
+                          </Tooltip>
                         </label>
                         <select
                           id={`gradingType-${index}`}
@@ -749,9 +867,9 @@ const MarkingSchemeForm: React.FC = () => {
                         {/* Grading type explanation */}
                         <div className="mt-1 text-xs text-gray-500">
                           {row.gradingType === "one-word" && "Matches a single word exactly"}
-                          {row.gradingType === "short-phrase" && "Compares meaning of short phrases"}
-                          {row.gradingType === "list" && "Compares items in a list"}
-                          {row.gradingType === "numerical" && "Matches numerical values"}
+                          {row.gradingType === "short-phrase" && "Uses AI to understand the meaning of phrases"}
+                          {row.gradingType === "list" && "Compares items in a list, with or without order"}
+                          {row.gradingType === "numerical" && "Compares numbers, with optional range tolerance"}
                         </div>
                       </div>
                       
@@ -761,60 +879,84 @@ const MarkingSchemeForm: React.FC = () => {
                         </span>
                         
                         <div className="grid grid-cols-2 gap-2">
+                          {/* Case Sensitive Option */}
                           <div className={`flex items-center ${row.gradingType === "numerical" ? "opacity-50" : ""}`}>
-                            <input
-                              id={`caseSensitive-${index}`}
-                              type="checkbox"
-                              checked={row.caseSensitive}
-                              disabled={row.gradingType === "numerical"}
-                              onChange={(e) => handleChange(index, "caseSensitive", e.target.checked)}
-                              className="h-4 w-4 text-light-2 focus:ring-light-2 border-gray-300 rounded"
-                            />
-                            <label htmlFor={`caseSensitive-${index}`} className="ml-2 text-sm text-gray-700">
-                              Case Sensitive
-                            </label>
+                            <Tooltip text="When enabled, 'Paris' and 'paris' will be treated as different answers.">
+                              <div className="flex items-center">
+                                <input
+                                  id={`caseSensitive-${index}`}
+                                  type="checkbox"
+                                  checked={row.caseSensitive}
+                                  disabled={row.gradingType === "numerical"}
+                                  onChange={(e) => handleChange(index, "caseSensitive", e.target.checked)}
+                                  className="h-4 w-4 text-light-2 focus:ring-light-2 border-gray-300 rounded"
+                                />
+                                <label htmlFor={`caseSensitive-${index}`} className="ml-2 text-sm text-gray-700 flex items-center">
+                                  Case Sensitive
+                                  <Info className="w-3.5 h-3.5 ml-1 text-gray-400 cursor-help" />
+                                </label>
+                              </div>
+                            </Tooltip>
                           </div>
                           
+                          {/* Order Sensitive Option */}
                           <div className={`flex items-center ${row.gradingType !== "list" ? "opacity-50" : ""}`}>
-                            <input
-                              id={`orderSensitive-${index}`}
-                              type="checkbox"
-                              checked={row.orderSensitive}
-                              disabled={row.gradingType !== "list"}
-                              onChange={(e) => handleChange(index, "orderSensitive", e.target.checked)}
-                              className="h-4 w-4 text-light-2 focus:ring-light-2 border-gray-300 rounded"
-                            />
-                            <label htmlFor={`orderSensitive-${index}`} className="ml-2 text-sm text-gray-700">
-                              Order Matters
-                            </label>
+                            <Tooltip text="When enabled, the order of items in a list matters. For example, 'A,B,C' and 'B,A,C' would be different.">
+                              <div className="flex items-center">
+                                <input
+                                  id={`orderSensitive-${index}`}
+                                  type="checkbox"
+                                  checked={row.orderSensitive}
+                                  disabled={row.gradingType !== "list"}
+                                  onChange={(e) => handleChange(index, "orderSensitive", e.target.checked)}
+                                  className="h-4 w-4 text-light-2 focus:ring-light-2 border-gray-300 rounded"
+                                />
+                                <label htmlFor={`orderSensitive-${index}`} className="ml-2 text-sm text-gray-700 flex items-center">
+                                  Order Matters
+                                  <Info className="w-3.5 h-3.5 ml-1 text-gray-400 cursor-help" />
+                                </label>
+                              </div>
+                            </Tooltip>
                           </div>
                           
+                          {/* Partial Matching Option */}
                           <div className={`flex items-center ${row.gradingType !== "list" ? "opacity-50" : ""}`}>
-                            <input
-                              id={`partialMatching-${index}`}
-                              type="checkbox"
-                              checked={row.partialMatching}
-                              disabled={row.gradingType !== "list"}
-                              onChange={(e) => handleChange(index, "partialMatching", e.target.checked)}
-                              className="h-4 w-4 text-light-2 focus:ring-light-2 border-gray-300 rounded"
-                            />
-                            <label htmlFor={`partialMatching-${index}`} className="ml-2 text-sm text-gray-700">
-                              Partial Credit
-                            </label>
+                            <Tooltip text="When enabled, partial credit is given based on how many items are correct in a list.">
+                              <div className="flex items-center">
+                                <input
+                                  id={`partialMatching-${index}`}
+                                  type="checkbox"
+                                  checked={row.partialMatching}
+                                  disabled={row.gradingType !== "list"}
+                                  onChange={(e) => handleChange(index, "partialMatching", e.target.checked)}
+                                  className="h-4 w-4 text-light-2 focus:ring-light-2 border-gray-300 rounded"
+                                />
+                                <label htmlFor={`partialMatching-${index}`} className="ml-2 text-sm text-gray-700 flex items-center">
+                                  Partial Credit
+                                  <Info className="w-3.5 h-3.5 ml-1 text-gray-400 cursor-help" />
+                                </label>
+                              </div>
+                            </Tooltip>
                           </div>
                           
+                          {/* Use Range Option */}
                           {row.gradingType === "numerical" && (
                             <div className="flex items-center">
-                              <input
-                                id={`useRange-${index}`}
-                                type="checkbox"
-                                //checked={row.useRange || false}
-                                onChange={(e) => handleChange(index, "useRange", e.target.checked)}
-                                className="h-4 w-4 text-light-2 focus:ring-light-2 border-gray-300 rounded"
-                              />
-                              <label htmlFor={`useRange-${index}`} className="ml-2 text-sm text-gray-700">
-                                Use Range
-                              </label>
+                              <Tooltip text="When enabled, answers within a specified range are considered correct.">
+                                <div className="flex items-center">
+                                  <input
+                                    id={`useRange-${index}`}
+                                    type="checkbox"
+                                    checked={row.useRange || false}
+                                    onChange={(e) => handleChange(index, "useRange", e.target.checked)}
+                                    className="h-4 w-4 text-light-2 focus:ring-light-2 border-gray-300 rounded"
+                                  />
+                                  <label htmlFor={`useRange-${index}`} className="ml-2 text-sm text-gray-700 flex items-center">
+                                    Use Range
+                                    <Info className="w-3.5 h-3.5 ml-1 text-gray-400 cursor-help" />
+                                  </label>
+                                </div>
+                              </Tooltip>
                             </div>
                           )}
                         </div>
@@ -824,8 +966,11 @@ const MarkingSchemeForm: React.FC = () => {
                     {/* Additional options based on grading type */}
                     {row.gradingType === "short-phrase" && (
                       <div className="mb-4">
-                        <label htmlFor={`semanticThreshold-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                          Semantic Threshold (0.0 - 1.0):
+                        <label htmlFor={`semanticThreshold-${index}`} className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                          <span>Semantic Threshold (0.0 - 1.0):</span>
+                          <Tooltip text="Higher values require answers to be more similar to the correct answer. Lower values are more lenient.">
+                            <Info className="w-3.5 h-3.5 ml-1 text-gray-400 cursor-help" />
+                          </Tooltip>
                         </label>
                         <div className="flex items-center">
                           <input
@@ -842,9 +987,10 @@ const MarkingSchemeForm: React.FC = () => {
                             {row.semanticThreshold.toFixed(1)}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-gray-500">
-                          Higher values require answers to be more similar to the correct answer
-                        </p>
+                        <div className="mt-1 text-xs text-gray-500 flex justify-between">
+                          <span>More lenient</span>
+                          <span>More strict</span>
+                        </div>
                       </div>
                     )}
                     
@@ -852,8 +998,11 @@ const MarkingSchemeForm: React.FC = () => {
                     {row.gradingType === "numerical" && row.useRange && (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-3 bg-gray-50 rounded-lg">
                         <div>
-                          <label htmlFor={`minRange-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                            Minimum Value:
+                          <label htmlFor={`minRange-${index}`} className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                            <span>Minimum Value:</span>
+                            <Tooltip text="The lowest acceptable answer value.">
+                              <Info className="w-3.5 h-3.5 ml-1 text-gray-400 cursor-help" />
+                            </Tooltip>
                           </label>
                           <input
                             id={`minRange-${index}`}
@@ -868,8 +1017,11 @@ const MarkingSchemeForm: React.FC = () => {
                           />
                         </div>
                         <div>
-                          <label htmlFor={`maxRange-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                            Maximum Value:
+                          <label htmlFor={`maxRange-${index}`} className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                            <span>Maximum Value:</span>
+                            <Tooltip text="The highest acceptable answer value.">
+                              <Info className="w-3.5 h-3.5 ml-1 text-gray-400 cursor-help" />
+                            </Tooltip>
                           </label>
                           <input
                             id={`maxRange-${index}`}
@@ -884,8 +1036,11 @@ const MarkingSchemeForm: React.FC = () => {
                           />
                         </div>
                         <div>
-                          <label htmlFor={`toleranceRange-${index}`} className="block text-sm font-medium text-gray-700 mb-1">
-                            Tolerance %:
+                          <label htmlFor={`toleranceRange-${index}`} className="block text-sm font-medium text-gray-700 mb-1 flex items-center">
+                            <span>Tolerance %:</span>
+                            <Tooltip text="Percentage tolerance outside the min/max range. For example, 5% means answers up to 5% below minimum or above maximum will still be accepted.">
+                              <Info className="w-3.5 h-3.5 ml-1 text-gray-400 cursor-help" />
+                            </Tooltip>
                           </label>
                           <input
                             id={`toleranceRange-${index}`}
@@ -926,7 +1081,16 @@ const MarkingSchemeForm: React.FC = () => {
         <div className="flex justify-between items-center">
           <button
             type="button"
-            onClick={() => router.push(`/module/${moduleId}/${assignmentId}`)}
+            onClick={() => {
+              // If there are unsaved changes, confirm before leaving
+              if (hasChanges) {
+                if (window.confirm("You have unsaved changes. Are you sure you want to leave?")) {
+                  router.push(`/module/${moduleId}/${assignmentId}`);
+                }
+              } else {
+                router.push(`/module/${moduleId}/${assignmentId}`);
+              }
+            }}
             className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Cancel
