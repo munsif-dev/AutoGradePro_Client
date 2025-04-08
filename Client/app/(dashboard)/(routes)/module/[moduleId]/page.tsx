@@ -11,3 +11,4 @@ const ModuleDetailsPage = ({
 };
 
 export default ModuleDetailsPage;
+

@@ -1,5 +1,5 @@
 module.exports = {
-  root: true, // Indicates this is the root configuration
+  
   extends: [
     "eslint:recommended", // Use recommended ESLint rules
     "plugin:react/recommended", // Enable React-specific linting rules (optional)
