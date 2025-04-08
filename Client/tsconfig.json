@@ -4,7 +4,8 @@
     "allowJs": true,
     "checkJs": false, // Skips type-checking JavaScript files
     // Allows JSX in .tsx files
-    "module": "commonjs", // Adjust based on your module system (e.g., "ESNext" for modern imports/exports)
+    "module": "esnext", // Adjust based on your module system (e.g., "ESNext" for modern imports/exports)
+    "moduleResolution": "bundler",
     "target": "es6",
     "skipLibCheck": true,
     "strict": true,
@@ -22,7 +23,7 @@
     "paths": {
       "@/*": ["./*"]
     },
-    "moduleResolution": "node"
+    
   },
   "include": [
     "next-env.d.ts",

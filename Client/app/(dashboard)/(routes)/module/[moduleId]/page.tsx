@@ -1,13 +1,12 @@
 import ModuleDetailsPageClient from "./_components/moduleDetailsPageClient";
 
+// Correctly typed page component for Next.js App Router
 const ModuleDetailsPage = ({
   params,
 }: {
   params: { moduleId: string };
 }) => {
-  // Remove the async keyword from the function
-  // Remove the await for params since it's not a Promise
-
+  // No need to await params, it's already a resolved object
   return <ModuleDetailsPageClient moduleId={params.moduleId} />;
 };
 
