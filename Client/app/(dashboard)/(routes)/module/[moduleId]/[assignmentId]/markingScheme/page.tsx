@@ -24,6 +24,7 @@ import {
   ChevronUp,
   Loader2,
   ChevronRight,
+  FileUp,
 } from "lucide-react";
 
 interface AnswerRow {
@@ -67,6 +68,11 @@ const MarkingSchemeForm: React.FC = () => {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [assignmentTitle, setAssignmentTitle] = useState<string>("");
   const router = useRouter();
+  
+  // File upload related states
+  const [isParsingFile, setIsParsingFile] = useState<boolean>(false);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   const fetchMarkingScheme = async () => {
     if (!assignmentId) return;
@@ -217,6 +223,81 @@ const MarkingSchemeForm: React.FC = () => {
     setRows(updatedRows);
   };
 
+  // File upload handler
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    const fileExt = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    const allowedTypes = ['.docx', '.pdf', '.xlsx', '.txt'];
+    if (!allowedTypes.some(ext => fileExt.endsWith(ext))) {
+      toast.error(`Unsupported file type. Please upload DOCX, PDF, XLSX, or TXT files.`);
+      return;
+    }
+    
+    setIsParsingFile(true);
+    setUploadProgress(0);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      // Use progress tracking during upload
+      const response = await api.post(
+        `/api/assignment/${assignmentId}/parse-marking-scheme/`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+            setUploadProgress(percentCompleted);
+          }
+        }
+      );
+      
+      const parsedItems = response.data.items;
+      
+      if (parsedItems && parsedItems.length > 0) {
+        // If we have existing marking scheme, confirm replacement
+        if (rows.length > 1 || (rows.length === 1 && rows[0].answer)) {
+          if (!window.confirm(`This will replace your current marking scheme with ${parsedItems.length} questions from the uploaded file. Continue?`)) {
+            setIsParsingFile(false);
+            return;
+          }
+        }
+        
+        // Convert parsed items to our row format
+        const newRows = parsedItems.map((item: { number: any; question: any; answer: any; marks: any; caseSensitive: any; orderSensitive: any; rangeSensitive: any; gradingType: string; partialMatching: any; }) => ({
+          number: item.number,
+          question: item.question || "",
+          answer: item.answer,
+          marks: String(item.marks || 10),
+          caseSensitive: item.caseSensitive || false,
+          orderSensitive: item.orderSensitive || false,
+          rangeSensitive: item.rangeSensitive || (item.gradingType === 'numerical'),
+          partialMatching: item.partialMatching || (item.gradingType === 'list'),
+          semanticThreshold: item.gradingType === 'short-phrase' ? 0.7 : 0.5,
+          gradingType: item.gradingType || "one-word",
+          expanded: true, // Expand all imported items for review
+          useRange: item.gradingType === 'numerical',
+          range: item.gradingType === 'numerical' ? { min: 0, max: 0, tolerance_percent: 5 } : undefined
+        }));
+        
+        setRows(newRows);
+        toast.success(`Successfully imported ${newRows.length} questions from ${file.name}`);
+      } else {
+        toast.warning("No valid questions or answers found in the file. Please check the format and try again.");
+      }
+    } catch (error) {
+      console.error("Error parsing file:", error);
+      toast.error(`Failed to process file: ${error.response?.data?.error || "Unknown error"}`);
+    } finally {
+      setIsParsingFile(false);
+      setUploadProgress(0);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -350,7 +431,7 @@ const MarkingSchemeForm: React.FC = () => {
   return (
     <div className="min-h-screen bg-purple-50">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center m-4">
-        <div className="text-gray-500 text-xs sm:text-sm hidden sm:flex items-center mt-8">
+        <div className="text-gray-500 text-xs sm:text-sm hidden sm:flex items-center">
           <span
             className="hover:text-purple-600 cursor-pointer"
             onClick={() => router.push("/module")}
@@ -386,6 +467,89 @@ const MarkingSchemeForm: React.FC = () => {
           <p className="text-gray-500">
             Configure how answers will be graded automatically using AI
           </p>
+        </div>
+
+        {/* File Upload Section */}
+        <div className="bg-white shadow-lg rounded-xl p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center">
+            <FileUp className="w-5 h-5 mr-2 text-purple-600" />
+            Import Answers from File
+          </h3>
+          
+          <div 
+            className={`border-2 border-dashed ${isDragging ? 'border-light-1 bg-purple-50' : 'border-gray-300'} rounded-lg p-6 hover:border-light-2 transition-colors`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              if (e.dataTransfer.files.length > 0) {
+                const fileInput = document.getElementById('schemeFile') as HTMLInputElement;
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(e.dataTransfer.files[0]);
+                fileInput.files = dataTransfer.files;
+                handleFileUpload({ target: fileInput } as React.ChangeEvent<HTMLInputElement>);
+              }
+            }}
+          >
+            <input
+              type="file"
+              id="schemeFile"
+              onChange={handleFileUpload}
+              className="hidden"
+              accept=".docx,.pdf,.xlsx,.txt"
+            />
+            <label htmlFor="schemeFile" className="cursor-pointer block text-center">
+              <div className="flex flex-col items-center">
+                <FileText className="w-12 h-12 text-gray-400 mb-3" />
+                <p className="text-sm font-medium text-gray-700 mb-1">
+                  Drag & drop or click to upload a file with answers
+                </p>
+                <p className="text-xs text-gray-500 mb-3">
+                  Supported formats: DOCX, PDF, XLSX, TXT
+                </p>
+                <button 
+                  type="button"
+                  className="mt-2 px-4 py-2 bg-light-2 text-white rounded-full text-sm hover:bg-light-1 transition-all"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('schemeFile')?.click();
+                  }}
+                >
+                  Select File
+                </button>
+              </div>
+            </label>
+          </div>
+          
+          {isParsingFile && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-gray-700">Analyzing file...</span>
+                <span className="text-sm text-gray-500">{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="bg-light-2 h-2.5 rounded-full" style={{ width: `${uploadProgress}%` }}></div>
+              </div>
+              <p className="mt-2 text-xs text-gray-500 flex items-center">
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                AI is extracting questions and answers from your file
+              </p>
+            </div>
+          )}
+          
+          <div className="mt-4 text-xs text-gray-500">
+            <p className="font-medium mb-1">Tips for best results:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>Number your questions (e.g., "1. Paris")</li>
+              <li>Include answers for each question</li>
+              <li>Optional: specify marks like "(5 marks)" after answers</li>
+              <li>AI will automatically determine appropriate grading types</li>
+            </ul>
+          </div>
         </div>
 
         <div className="bg-white shadow-lg rounded-xl p-6 mb-6">

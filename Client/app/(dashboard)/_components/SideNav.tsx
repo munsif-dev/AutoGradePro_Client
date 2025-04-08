@@ -48,7 +48,7 @@ const SideNav = ({ isCollapsed = false, isMobile = false, closeMobileMenu }: Sid
   return (
     <div className="flex flex-col h-full bg-purple-200 shadow-md">
       {/* Logo Header */}
-      <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} py-4 px-4 border-b border-gray-300`}>
+      <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between pl-6'} py-4  border-b-4 border-light-2`}>
         <Link href="/" className={`flex items-center gap-2 ${isCollapsed ? 'justify-center' : ''}`}>
           <div className="relative flex-shrink-0">
             <Image 
@@ -60,7 +60,7 @@ const SideNav = ({ isCollapsed = false, isMobile = false, closeMobileMenu }: Sid
             />
           </div>
           {!isCollapsed && (
-            <span className="text-base font-semibold text-[#894799] tracking-wide">
+            <span className="text-xl font-bold text-[#894799] tracking-wide">
               AutoGradePro
             </span>
           )}
