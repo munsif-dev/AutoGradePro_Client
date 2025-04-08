@@ -1,14 +1,16 @@
+// app/(dashboard)/(routes)/module/[moduleId]/page.tsx
+
+import { Suspense } from 'react';
 import ModuleDetailsPageClient from "./_components/moduleDetailsPageClient";
 
-// Correctly typed page component for Next.js App Router
-const ModuleDetailsPage = ({
+export default function ModuleDetailsPage({
   params,
 }: {
-  params: { moduleId: string };
-}) => {
-  // No need to await params, it's already a resolved object
-  return <ModuleDetailsPageClient moduleId={params.moduleId} />;
-};
-
-export default ModuleDetailsPage;
-
+  params: { moduleId: string }
+}) {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ModuleDetailsPageClient moduleId={params.moduleId} />
+    </Suspense>
+  );
+}
