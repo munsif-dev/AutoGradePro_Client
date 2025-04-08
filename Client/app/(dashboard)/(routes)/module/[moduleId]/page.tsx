@@ -1,14 +1,14 @@
 import ModuleDetailsPageClient from "./_components/moduleDetailsPageClient";
 
-const ModuleDetailsPage = async ({
+const ModuleDetailsPage = ({
   params,
 }: {
   params: { moduleId: string };
 }) => {
-  // Unwrapping params asynchronously in the Server Component
-  const resolvedParams = await params; // If it's not already resolved
+  // Remove the async keyword from the function
+  // Remove the await for params since it's not a Promise
 
-  return <ModuleDetailsPageClient moduleId={resolvedParams.moduleId} />;
+  return <ModuleDetailsPageClient moduleId={params.moduleId} />;
 };
 
 export default ModuleDetailsPage;
