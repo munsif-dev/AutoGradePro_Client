@@ -67,11 +67,14 @@ const TopHeader = ({
             data.profile_picture : 
             `${process.env.NEXT_PUBLIC_DJANGO_API_URL}${data.profile_picture}`) 
           : null);
+          
         if (data.user) {
           const { first_name, last_name, email } = data.user;
           setUserName(`${first_name || ''} ${last_name || ''}`);
           setUserEmail(email || '');
         }
+        console.log("data", data);
+        console.log("profilePicture", profilePicture);
       })
       .catch((err) => {
         console.error("Failed to fetch profile details:", err);

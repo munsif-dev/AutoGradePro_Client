@@ -1,7 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ["127.0.0.1", "localhost"], // Allow images from localhost and 127.0.0.1
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: '127.0.0.1',
+        port: '8000',
+        pathname: '/media/**',
+      },
+      {
+        // Add your production backend domain here
+        protocol: 'https', // or http if your backend isn't using https
+        hostname: 'your-backend-domain.com',
+        pathname: '/media/**',
+      },
+    ],
   },
   typescript: {
     // ⚠️ This will completely ignore TypeScript errors during build
