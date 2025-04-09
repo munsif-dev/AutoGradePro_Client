@@ -38,7 +38,6 @@ import {
   Zap,
   ArrowUpRight,
   ArrowDownRight,
-  Trash,
   Clock,
   ClipboardList,
 } from "lucide-react";
@@ -46,22 +45,23 @@ import * as XLSX from "xlsx";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// Define grade boundaries
+// Define grade boundaries according to specified ranges
 const GRADE_BOUNDARIES = [
-  { grade: "A+", min: 90, color: "rgb(0, 200, 83)" },
-  { grade: "A", min: 80, color: "rgb(56, 173, 169)" },
-  { grade: "B+", min: 75, color: "rgb(75, 192, 192)" },
-  { grade: "B", min: 70, color: "rgb(54, 162, 235)" },
-  { grade: "C+", min: 65, color: "rgb(153, 102, 255)" },
-  { grade: "C", min: 60, color: "rgb(137, 71, 153)" },
-  { grade: "D+", min: 55, color: "rgb(255, 159, 64)" },
-  { grade: "D", min: 50, color: "rgb(255, 205, 86)" },
-  { grade: "E", min: 45, color: "rgb(255, 99, 132)" },
-  { grade: "F", min: 0, color: "rgb(239, 68, 68)" },
+  { grade: "A+", min: 81, max: 100, color: "rgb(0, 200, 83)" },
+  { grade: "A", min: 75, max: 80, color: "rgb(56, 173, 169)" },
+  { grade: "A-", min: 70, max: 74, color: "rgb(75, 192, 192)" },
+  { grade: "B+", min: 65, max: 69, color: "rgb(54, 162, 235)" },
+  { grade: "B", min: 60, max: 64, color: "rgb(153, 102, 255)" },
+  { grade: "B-", min: 55, max: 59, color: "rgb(137, 71, 153)" },
+  { grade: "C+", min: 50, max: 54, color: "rgb(255, 159, 64)" },
+  { grade: "C", min: 45, max: 49, color: "rgb(255, 205, 86)" },
+  { grade: "C-", min: 40, max: 44, color: "rgb(255, 99, 132)" },
+  { grade: "E", min: 0, max: 39, color: "rgb(239, 68, 68)" },
 ];
 
 interface SubmissionWithRank {
   id: number;
+  file_name: string;
   score: number;
   grade: string;
   rank: number;
@@ -74,6 +74,14 @@ interface GradeDistribution {
   count: number;
   color: string;
   percentage: number;
+  min: number;
+  max: number;
+}
+
+interface FileDetail {
+  id: number;
+  file_name: string;
+  score: number;
 }
 
 const AssignmentReportPage = () => {
@@ -89,7 +97,9 @@ const AssignmentReportPage = () => {
     module: { name: "", code: "" },
   });
   const [grades, setGrades] = useState<number[]>([]);
-  const [passScore, setPassScore] = useState(45); // Default pass score
+  // Array to store file names corresponding to grades
+  const [files, setFiles] = useState<FileDetail[]>([]);
+  const [passScore, setPassScore] = useState(40); // Default pass score matches the C- threshold
   const [statistics, setStatistics] = useState({
     highest: 0,
     lowest: 0,
@@ -99,16 +109,18 @@ const AssignmentReportPage = () => {
     failed: 0,
     standardDeviation: 0,
   });
-  const [activeTab, setActiveTab] = useState<"overview" | "details" | "rankings" | "distribution">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "distribution" | "rankings">("overview");
   const [showGradeInfo, setShowGradeInfo] = useState(false);
-  const [chartType, setChartType] = useState<"bar" | "line" | "doughnut">("bar");
+  const [chartType, setChartType] = useState<"bar" | "line">("bar");
   const [filterStatus, setFilterStatus] = useState<"all" | "pass" | "fail">("all");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (assignmentId) {
       fetchReportData();
       fetchAssignmentDetails();
       fetchMarkingScheme();
+      fetchSubmissionFiles();
     }
   }, [assignmentId]);
 
@@ -140,6 +152,20 @@ const AssignmentReportPage = () => {
       .catch((err) => {
         console.error("Failed to fetch assignment details:", err);
         toast.error("Failed to load assignment details");
+      });
+  };
+
+  // Fetch file details to get the file names
+  const fetchSubmissionFiles = () => {
+    if (!assignmentId) return;
+
+    api
+      .get(`/api/submission/${assignmentId}/files/`)
+      .then((res) => {
+        setFiles(res.data);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch submission files:", err);
       });
   };
 
@@ -188,15 +214,19 @@ const AssignmentReportPage = () => {
 
   const refreshReportData = () => {
     setRefreshing(true);
-    fetchReportData();
-    setTimeout(() => setRefreshing(false), 1000);
-    toast.success("Report data refreshed");
+    Promise.all([
+      fetchReportData(),
+      fetchSubmissionFiles()
+    ]).then(() => {
+      setTimeout(() => setRefreshing(false), 1000);
+      toast.success("Report data refreshed");
+    });
   };
 
   // Get letter grade based on score
   const getLetterGrade = (score: number): string => {
-    const gradeInfo = GRADE_BOUNDARIES.find(g => score >= g.min);
-    return gradeInfo ? gradeInfo.grade : "F";
+    const gradeInfo = GRADE_BOUNDARIES.find(g => score >= g.min && score <= g.max);
+    return gradeInfo ? gradeInfo.grade : "E";
   };
 
   // Get color for grades
@@ -265,10 +295,10 @@ const AssignmentReportPage = () => {
       const scoresData = [
         ["STUDENT SCORES AND RANKINGS"],
         [""],
-        ["Rank", "Submission #", "Score", "Letter Grade", "Status", "Percentile"],
-        ...rankedSubmissions.map((submission, index) => [
+        ["Rank", "File Name", "Score", "Letter Grade", "Status", "Percentile"],
+        ...rankedSubmissions.map((submission) => [
           submission.rank,
-          `Submission ${index + 1}`,
+          submission.file_name,
           submission.score,
           submission.grade,
           submission.score >= passScore ? "PASS" : "FAIL",
@@ -286,14 +316,12 @@ const AssignmentReportPage = () => {
         [""],
         ["Grade", "Count", "Percentage", "Score Range"],
         ...GRADE_BOUNDARIES.map(boundary => {
-          const nextBoundary = GRADE_BOUNDARIES.find(b => b.min < boundary.min);
-          const maxScore = nextBoundary ? nextBoundary.min - 1 : 0;
           const gradeInfo = gradeDist.find(g => g.grade === boundary.grade);
           return [
             boundary.grade,
             gradeInfo ? gradeInfo.count : 0,
             gradeInfo ? `${gradeInfo.percentage.toFixed(1)}%` : "0%",
-            maxScore > 0 ? `${boundary.min}-${maxScore}` : `${boundary.min}+`,
+            `${boundary.min}-${boundary.max}`,
           ];
         }),
       ];
@@ -359,7 +387,9 @@ const AssignmentReportPage = () => {
       grade: boundary.grade,
       count: 0,
       color: boundary.color,
-      percentage: 0
+      percentage: 0,
+      min: boundary.min,
+      max: boundary.max
     }));
 
     // Count grades
@@ -383,7 +413,7 @@ const AssignmentReportPage = () => {
     const gradeCounts = getGradeDistributionData();
 
     return {
-      labels: gradeCounts.map((item) => item.grade),
+      labels: gradeCounts.map((item) => `${item.grade} (${item.min}-${item.max})`),
       datasets: [
         {
           label: "Number of Students",
@@ -410,7 +440,7 @@ const AssignmentReportPage = () => {
     const sortedGrades = [...grades].sort((a, b) => b - a);
     
     // Create array of submission objects with ranks
-    const submissions: SubmissionWithRank[] = grades.map(score => {
+    const submissions: SubmissionWithRank[] = grades.map((score, index) => {
       // Find position in sorted array (0-based)
       const position = sortedGrades.indexOf(score);
       // Find scores with same value to handle ties
@@ -421,8 +451,13 @@ const AssignmentReportPage = () => {
       const scoresBelow = grades.filter(s => s < score).length;
       const percentile = (scoresBelow / grades.length) * 100;
       
+      // Get file name from files array if available, otherwise use a default
+      const fileInfo = files.find((f, i) => i === index);
+      const fileName = fileInfo ? fileInfo.file_name : `Unknown File ${index + 1}`;
+      
       return {
         id: Math.random(), // Just for rendering purposes
+        file_name: fileName,
         score,
         grade: getLetterGrade(score),
         rank,
@@ -463,58 +498,23 @@ const AssignmentReportPage = () => {
     ],
   };
 
-  // Score distribution histogram data
-  const getScoreDistributionData = () => {
-    // Create 10 bins (0-9, 10-19, ..., 90-100)
-    const bins = Array(11).fill(0);
-    
-    // Count scores in each bin
-    grades.forEach(score => {
-      const binIndex = Math.min(Math.floor(score / 10), 10);
-      bins[binIndex]++;
-    });
-    
-    // Generate labels for bins
-    const labels = bins.map((_, i) => 
-      i < 10 ? `${i*10}-${i*10+9}` : `${i*10}-100`
-    );
-    
-    return {
-      labels,
-      datasets: [
-        {
-          label: "Number of Students",
-          data: bins,
-          backgroundColor: bins.map((_, i) => {
-            // Color based on pass threshold
-            return i * 10 >= passScore ? purpleColor : redColor;
-          }),
-          borderColor: bins.map((_, i) => {
-            return i * 10 >= passScore ? purpleColorBorder : redColorBorder;
-          }),
-          borderWidth: 1,
-          borderRadius: 4,
-        },
-      ],
-    };
-  };
-
   // Individual performance chart data
   const getPerformanceChartData = () => {
     // Filter submissions based on current filter
-    const filteredGrades = getFilteredSubmissions().map(s => s.score);
-    const labels = getFilteredSubmissions().map((_, i) => `Sub ${i + 1}`);
+    const filteredSubmissions = getFilteredSubmissions();
+    const scores = filteredSubmissions.map(s => s.score);
+    const labels = filteredSubmissions.map(s => s.file_name);
     
     return {
       labels,
       datasets: [
         {
           label: "Scores",
-          data: filteredGrades,
-          backgroundColor: filteredGrades.map((score) =>
+          data: scores,
+          backgroundColor: scores.map((score) =>
             score < passScore ? redColor : purpleColor
           ),
-          borderColor: filteredGrades.map((score) =>
+          borderColor: scores.map((score) =>
             score < passScore ? redColorBorder : purpleColorBorder
           ),
           borderWidth: 1,
@@ -526,19 +526,19 @@ const AssignmentReportPage = () => {
   
   // Line chart data for trend analysis
   const getScoreTrendData = () => {
-    // Sort scores in ascending order for trend analysis
-    const sortedScores = [...grades].sort((a, b) => a - b);
+    // Sort submissions by score for trend analysis
+    const sortedSubmissions = [...getFilteredSubmissions()].sort((a, b) => a.score - b.score);
     
     return {
-      labels: sortedScores.map((_, i) => i + 1),
+      labels: sortedSubmissions.map(s => s.file_name),
       datasets: [
         {
           label: "Scores",
-          data: sortedScores,
+          data: sortedSubmissions.map(s => s.score),
           borderColor: purpleColorBorder,
           backgroundColor: "transparent",
-          pointBackgroundColor: sortedScores.map(score => 
-            score >= passScore ? "rgba(137, 71, 153, 1)" : "rgba(239, 68, 68, 1)"
+          pointBackgroundColor: sortedSubmissions.map(s => 
+            s.score >= passScore ? "rgba(137, 71, 153, 1)" : "rgba(239, 68, 68, 1)"
           ),
           pointBorderColor: "#fff",
           tension: 0.2,
@@ -546,7 +546,7 @@ const AssignmentReportPage = () => {
         },
         {
           label: "Average",
-          data: Array(sortedScores.length).fill(statistics.average),
+          data: Array(sortedSubmissions.length).fill(statistics.average),
           borderColor: "rgba(75, 192, 192, 1)",
           borderDash: [5, 5],
           borderWidth: 1,
@@ -555,7 +555,7 @@ const AssignmentReportPage = () => {
         },
         {
           label: "Pass Threshold",
-          data: Array(sortedScores.length).fill(passScore),
+          data: Array(sortedSubmissions.length).fill(passScore),
           borderColor: "rgba(255, 159, 64, 1)",
           borderDash: [3, 3],
           borderWidth: 1,
@@ -762,16 +762,6 @@ const AssignmentReportPage = () => {
             >
               Rankings
             </button>
-            <button
-              onClick={() => setActiveTab("details")}
-              className={`px-4 py-3 font-medium text-sm whitespace-nowrap ${
-                activeTab === "details"
-                  ? "text-purple-600 border-b-2 border-purple-600"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              Submission Details
-            </button>
           </div>
           
           {/* Tab Content */}
@@ -797,7 +787,7 @@ const AssignmentReportPage = () => {
                       </div>
                     </div>
                     <div className="mt-1 text-xs text-gray-500">
-                      {grades.length > 0 && `ID: ${grades.length} - ${grades.length + 999}`}
+                      {files.length > 0 && `${files.length} files assessed`}
                     </div>
                   </div>
 
@@ -905,27 +895,18 @@ const AssignmentReportPage = () => {
                           Grade Boundaries
                         </h3>
                         <div className="grid grid-cols-2 gap-2">
-                          {GRADE_BOUNDARIES.map((boundary, index) => {
-                            // Calculate the score range for this grade
-                            const nextBoundary = GRADE_BOUNDARIES.find(b => b.min < boundary.min);
-                            const maxScore = nextBoundary ? nextBoundary.min - 1 : 0;
-                            
-                            return (
-                              <div key={boundary.grade} className="flex items-center">
-                                <div 
-                                  className="w-3 h-3 rounded-full mr-1" 
-                                  style={{ backgroundColor: boundary.color }}
-                                ></div>
-                                <span className="font-medium">{boundary.grade}:</span>
-                                <span className="ml-1 text-gray-600">
-                                  {maxScore > 0 ? 
-                                    `${boundary.min}-${maxScore}%` : 
-                                    `${boundary.min}%+`
-                                  }
-                                </span>
-                              </div>
-                            );
-                          })}
+                          {GRADE_BOUNDARIES.map((boundary) => (
+                            <div key={boundary.grade} className="flex items-center">
+                              <div 
+                                className="w-3 h-3 rounded-full mr-1" 
+                                style={{ backgroundColor: boundary.color }}
+                              ></div>
+                              <span className="font-medium">{boundary.grade}:</span>
+                              <span className="ml-1 text-gray-600">
+                                {boundary.min}-{boundary.max}%
+                              </span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -1041,88 +1022,11 @@ const AssignmentReportPage = () => {
                   </div>
                 </div>
 
-                {/* Score Distribution Histogram */}
-                <div className="bg-white shadow-md rounded-lg p-6 mb-6 border">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                      <BarChart className="w-5 h-5 mr-2 text-purple-600" />
-                      Score Distribution
-                    </h2>
-                    
-                    <div className="flex items-center gap-2">
-                      <div className="text-xs text-gray-500 flex items-center">
-                        <div className="w-3 h-3 rounded-full bg-purple-600 mr-1"></div>
-                        Pass ({passScore}%+)
-                      </div>
-                      <div className="text-xs text-gray-500 flex items-center">
-                        <div className="w-3 h-3 rounded-full bg-red-500 mr-1"></div>
-                        Fail (Below {passScore}%)
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {grades.length > 0 ? (
-                    <div className="h-72">
-                      <Bar
-                        data={getScoreDistributionData()}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          plugins: {
-                            legend: {
-                              display: false,
-                            },
-                            tooltip: {
-                              callbacks: {
-                                label: function (context) {
-                                  const count = context.raw as number;
-                                  const total = grades.length;
-                                  const percentage = ((count / total) * 100).toFixed(1);
-                                  return `${count} students (${percentage}%)`;
-                                },
-                              },
-                            },
-                          },
-                          scales: {
-                            y: {
-                              beginAtZero: true,
-                              title: {
-                                display: true,
-                                text: "Number of Students",
-                                font: {
-                                  size: 12,
-                                },
-                              },
-                              ticks: {
-                                precision: 0,
-                              },
-                            },
-                            x: {
-                              title: {
-                                display: true,
-                                text: "Score Range",
-                                font: {
-                                  size: 12,
-                                },
-                              },
-                            },
-                          },
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="h-72 flex flex-col items-center justify-center text-gray-500">
-                      <AlertTriangle className="w-12 h-12 text-amber-500 mb-3" />
-                      <p className="font-medium">No data available</p>
-                    </div>
-                  )}
-                </div>
-
                 {/* Score Trend Line Chart */}
                 <div className="bg-white shadow-md rounded-lg p-6 mb-6 border">
                   <h2 className="text-lg font-semibold mb-4 text-gray-800 flex items-center">
                     <LineChart className="w-5 h-5 mr-2 text-purple-600" />
-                    Score Trend Analysis
+                    Score Distribution
                   </h2>
                   
                   {grades.length > 0 ? (
@@ -1136,7 +1040,7 @@ const AssignmentReportPage = () => {
                             tooltip: {
                               callbacks: {
                                 title: (items) => {
-                                  return `Student ${items[0].label}`;
+                                  return items[0].label;
                                 },
                                 label: (context) => {
                                   if (context.dataset.label === "Scores") {
@@ -1170,11 +1074,14 @@ const AssignmentReportPage = () => {
                             x: {
                               title: {
                                 display: true,
-                                text: "Student Index (Sorted by Score)",
+                                text: "Submissions (Sorted by Score)",
                                 font: {
                                   size: 12,
                                 },
                               },
+                              ticks: {
+                                display: false // Hide x-axis labels for cleaner look
+                              }
                             },
                           },
                         }}
@@ -1206,19 +1113,11 @@ const AssignmentReportPage = () => {
                     </p>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                      {GRADE_BOUNDARIES.map((boundary, index) => {
-                        // Calculate the score range for this grade
-                        const nextBoundary = GRADE_BOUNDARIES.find(b => b.min < boundary.min);
-                        const maxScore = nextBoundary ? nextBoundary.min - 1 : 0;
-                        
+                      {GRADE_BOUNDARIES.map((boundary) => {
                         // Count students in this grade
-                        const studentsInGrade = grades.filter(score => {
-                          if (maxScore > 0) {
-                            return score >= boundary.min && score <= maxScore;
-                          } else {
-                            return score >= boundary.min;
-                          }
-                        }).length;
+                        const studentsInGrade = grades.filter(score => 
+                          score >= boundary.min && score <= boundary.max
+                        ).length;
                         
                         // Calculate percentage
                         const percentage = grades.length > 0 ? (studentsInGrade / grades.length) * 100 : 0;
@@ -1242,10 +1141,7 @@ const AssignmentReportPage = () => {
                                 </span>
                               </div>
                               <span className="text-sm text-gray-500">
-                                {maxScore > 0 ? 
-                                  `${boundary.min}-${maxScore}%` : 
-                                  `${boundary.min}%+`
-                                }
+                                {boundary.min}-{boundary.max}%
                               </span>
                             </div>
                             
@@ -1346,7 +1242,7 @@ const AssignmentReportPage = () => {
                       <div className="h-80 flex items-center justify-center">
                         <Pie
                           data={{
-                            labels: getGradeDistributionData().map(item => item.grade),
+                            labels: getGradeDistributionData().map(item => `${item.grade} (${item.min}-${item.max})`),
                             datasets: [
                               {
                                 data: getGradeDistributionData().map(item => item.count),
@@ -1395,70 +1291,6 @@ const AssignmentReportPage = () => {
                     )}
                   </div>
                 </div>
-                
-                {/* Score Distribution Histogram */}
-                <div className="bg-white shadow-md rounded-lg p-6 mb-6 border">
-                  <h2 className="text-lg font-semibold mb-4 text-gray-800 flex items-center">
-                    <BarChart className="w-5 h-5 mr-2 text-purple-600" />
-                    Score Distribution
-                  </h2>
-                  
-                  {grades.length > 0 ? (
-                    <div className="h-72">
-                      <Bar
-                        data={getScoreDistributionData()}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          plugins: {
-                            legend: {
-                              display: false,
-                            },
-                            tooltip: {
-                              callbacks: {
-                                label: function (context) {
-                                  const count = context.raw as number;
-                                  const total = grades.length;
-                                  const percentage = ((count / total) * 100).toFixed(1);
-                                  return `${count} students (${percentage}%)`;
-                                },
-                              },
-                            },
-                          },
-                          scales: {
-                            y: {
-                              beginAtZero: true,
-                              title: {
-                                display: true,
-                                text: "Number of Students",
-                                font: {
-                                  size: 12,
-                                },
-                              },
-                              ticks: {
-                                precision: 0,
-                              },
-                            },
-                            x: {
-                              title: {
-                                display: true,
-                                text: "Score Range",
-                                font: {
-                                  size: 12,
-                                },
-                              },
-                            },
-                          },
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="h-72 flex flex-col items-center justify-center text-gray-500">
-                      <AlertTriangle className="w-12 h-12 text-amber-500 mb-3" />
-                      <p className="font-medium">No data available</p>
-                    </div>
-                  )}
-                </div>
               </>
             )}
 
@@ -1470,7 +1302,7 @@ const AssignmentReportPage = () => {
                   <div>
                     <h2 className="text-lg font-semibold text-gray-800 flex items-center">
                       <Medal className="w-5 h-5 mr-2 text-purple-600" />
-                      Student Rankings
+                      File Rankings
                     </h2>
                     <p className="text-sm text-gray-500 mt-1">
                       Rankings based on {grades.length} submissions with a pass score of {passScore}%
@@ -1479,42 +1311,54 @@ const AssignmentReportPage = () => {
                   
                   {/* Filter dropdown */}
                   <div className="flex items-center gap-2">
-                    <div className="relative inline-block">
-                      <button
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm text-gray-700"
-                      >
-                        <Filter size={14} />
-                        <span>{filterStatus === "all" ? "All" : filterStatus === "pass" ? "Passed Only" : "Failed Only"}</span>
-                        <ChevronDown size={14} />
-                      </button>
-                      <div className="absolute right-0 mt-1 bg-white border border-gray-200 shadow-md rounded-md p-1 z-10">
-                        <button
-                          onClick={() => setFilterStatus("all")}
-                          className={`block w-full text-left px-3 py-1.5 text-sm rounded ${
-                            filterStatus === "all" ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50"
-                          }`}
-                        >
-                          All Submissions
-                        </button>
-                        <button
-                          onClick={() => setFilterStatus("pass")}
-                          className={`block w-full text-left px-3 py-1.5 text-sm rounded ${
-                            filterStatus === "pass" ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50"
-                          }`}
-                        >
-                          Passed Only
-                        </button>
-                        <button
-                          onClick={() => setFilterStatus("fail")}
-                          className={`block w-full text-left px-3 py-1.5 text-sm rounded ${
-                            filterStatus === "fail" ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50"
-                          }`}
-                        >
-                          Failed Only
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+  <div className="relative inline-block">
+    <button
+      onClick={() => setDropdownOpen(!dropdownOpen)}
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-md text-sm text-gray-700"
+    >
+      <Filter size={14} />
+      <span>{filterStatus === "all" ? "All" : filterStatus === "pass" ? "Passed Only" : "Failed Only"}</span>
+      <ChevronDown size={14} />
+    </button>
+    {dropdownOpen && (
+      <div className="absolute right-0 mt-1 bg-white border border-gray-200 shadow-md rounded-md p-1 z-10">
+        <button
+          onClick={() => {
+            setFilterStatus("all");
+            setDropdownOpen(false);
+          }}
+          className={`block w-full text-left px-3 py-1.5 text-sm rounded ${
+            filterStatus === "all" ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50"
+          }`}
+        >
+          All Submissions
+        </button>
+        <button
+          onClick={() => {
+            setFilterStatus("pass");
+            setDropdownOpen(false);
+          }}
+          className={`block w-full text-left px-3 py-1.5 text-sm rounded ${
+            filterStatus === "pass" ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50"
+          }`}
+        >
+          Passed Only
+        </button>
+        <button
+          onClick={() => {
+            setFilterStatus("fail");
+            setDropdownOpen(false);
+          }}
+          className={`block w-full text-left px-3 py-1.5 text-sm rounded ${
+            filterStatus === "fail" ? "bg-purple-50 text-purple-700" : "hover:bg-gray-50"
+          }`}
+        >
+          Failed Only
+        </button>
+      </div>
+    )}
+  </div>
+</div>
                 </div>
                 
                 {grades.length > 0 ? (
@@ -1529,7 +1373,7 @@ const AssignmentReportPage = () => {
                                 Rank
                               </th>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Submission
+                                File Name
                               </th>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Score
@@ -1581,7 +1425,9 @@ const AssignmentReportPage = () => {
                                   )}
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap text-sm">
-                                  Submission {index + 1}
+                                  <span className="truncate block max-w-xs" title={submission.file_name}>
+                                    {submission.file_name}
+                                  </span>
                                 </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
                                   <div className="flex items-center">
@@ -1648,7 +1494,7 @@ const AssignmentReportPage = () => {
                       </div>
                     </div>
                     
-                    {/* Performance Summary */}
+                    {/* Performance Visualization */}
                     <div className="bg-white shadow-md rounded-lg p-6 mb-6 border">
                       <div className="flex justify-between items-center mb-4">
                         <h2 className="text-lg font-semibold text-gray-800 flex items-center">
@@ -1692,9 +1538,7 @@ const AssignmentReportPage = () => {
                                 tooltip: {
                                   callbacks: {
                                     title: (items) => {
-                                      return `Submission ${parseInt(
-                                        items[0].label.replace("Sub ", "")
-                                      )}`;
+                                      return items[0].label;
                                     },
                                     label: (context) => {
                                       const score = context.raw as number;
@@ -1725,11 +1569,14 @@ const AssignmentReportPage = () => {
                                 x: {
                                   title: {
                                     display: true,
-                                    text: "Submissions",
+                                    text: "Files",
                                     font: {
                                       size: 12,
                                     },
                                   },
+                                  ticks: {
+                                    display: false // Hide x-axis labels to avoid cluttering
+                                  }
                                 },
                               },
                             }}
@@ -1737,7 +1584,7 @@ const AssignmentReportPage = () => {
                         ) : (
                           <Line
                             data={{
-                              labels: getFilteredSubmissions().map((_, i) => `Sub ${i + 1}`),
+                              labels: getFilteredSubmissions().map(s => s.file_name),
                               datasets: [
                                 {
                                   label: "Scores",
@@ -1776,9 +1623,7 @@ const AssignmentReportPage = () => {
                                 tooltip: {
                                   callbacks: {
                                     title: (items) => {
-                                      return `Submission ${parseInt(
-                                        items[0].label.replace("Sub ", "")
-                                      )}`;
+                                      return items[0].label;
                                     },
                                     label: (context) => {
                                       if (context.dataset.label === "Scores") {
@@ -1812,11 +1657,14 @@ const AssignmentReportPage = () => {
                                 x: {
                                   title: {
                                     display: true,
-                                    text: "Submissions",
+                                    text: "Files",
                                     font: {
                                       size: 12,
                                     },
                                   },
+                                  ticks: {
+                                    display: false // Hide x-axis labels to avoid cluttering
+                                  }
                                 },
                               },
                             }}
@@ -1857,153 +1705,6 @@ const AssignmentReportPage = () => {
                 )}
               </>
             )}
-
-            {/* Submission Details Tab */}
-            {activeTab === "details" && (
-              <div className="bg-white shadow-md rounded-lg overflow-hidden border">
-                <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                    <ClipboardList className="w-5 h-5 mr-2 text-purple-600" />
-                    Submission Details
-                  </h2>
-                  
-                  <div className="flex items-center gap-2">
-                    <div className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-md">
-                      {grades.length} Submissions
-                    </div>
-                    <button
-                      onClick={downloadExcel}
-                      className="text-xs flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700"
-                      title="Export to Excel"
-                    >
-                      <Download size={12} />
-                      Export
-                    </button>
-                  </div>
-                </div>
-
-                {grades.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                            ID
-                          </th>
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                            Score
-                          </th>
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                            Grade
-                          </th>
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                            Rank
-                          </th>
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                            Status
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {getRankedSubmissions().map((submission, index) => (
-                          <tr key={submission.id} className="hover:bg-gray-50">
-                            <td className="py-3 px-4 whitespace-nowrap text-sm">
-                              {index + 1}
-                            </td>
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {submission.score}
-                                </div>
-                                <div
-                                  className="ml-2 w-12 h-2 bg-gray-200 rounded-full overflow-hidden"
-                                  title={`${submission.score}%`}
-                                >
-                                  <div
-                                    className={`h-full ${
-                                      submission.score >= passScore
-                                        ? "bg-green-500"
-                                        : "bg-red-500"
-                                    }`}
-                                    style={{ width: `${submission.score}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <span
-                                className="inline-flex items-center justify-center w-8 h-8 rounded-full text-white text-xs font-medium"
-                                style={{
-                                  backgroundColor: getGradeBorderColor(
-                                    submission.grade
-                                  ),
-                                }}
-                              >
-                                {submission.grade}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              {submission.rank <= 3 ? (
-                                <div className="flex items-center">
-                                  <div 
-                                    className={`w-5 h-5 rounded-full flex items-center justify-center text-white font-medium text-xs mr-1 ${
-                                      submission.rank === 1 
-                                        ? "bg-amber-500" 
-                                        : submission.rank === 2 
-                                          ? "bg-gray-400" 
-                                          : "bg-amber-700"
-                                    }`}
-                                  >
-                                    {submission.rank}
-                                  </div>
-                                  <span className="text-gray-700 text-sm">
-                                    {submission.rank === 1 
-                                      ? "1st place" 
-                                      : submission.rank === 2 
-                                        ? "2nd place" 
-                                        : "3rd place"
-                                    }
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-gray-700 text-sm">{submission.rank}th place</span>
-                              )}
-                            </td>
-                            <td className="py-3 px-4 whitespace-nowrap">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  submission.score >= passScore
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-red-100 text-red-800"
-                                }`}
-                              >
-                                {submission.score >= passScore ? (
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                ) : (
-                                  <XCircle className="w-3 h-3 mr-1" />
-                                )}
-                                {submission.score >= passScore ? "PASS" : "FAIL"}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="py-12 text-center text-gray-500">
-                    <AlertTriangle className="w-12 h-12 mx-auto text-amber-500 mb-3" />
-                    <p className="text-lg font-medium">
-                      No submission data available
-                    </p>
-                    <p className="mt-1 text-sm">
-                      Try refreshing the report or check if any files have been
-                      uploaded
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -2020,7 +1721,7 @@ const AssignmentReportPage = () => {
   );
 };
 
-// Missing BookOpen component for compatibility
+// BookOpen component for compatibility
 const BookOpen = ({ className }: { className?: string }) => (
   <svg 
     xmlns="http://www.w3.org/2000/svg" 

@@ -92,7 +92,7 @@ const Layout = ({ children }: LayoutProps) => {
           isMobile={isMobile}
         />
         <main className="flex-1 overflow-y-auto bg-purple-50 pt-16">
-          <div className="container mx-auto px-4 py-6 md:px-6 md:py-8 max-w-7xl">
+          <div className="container mx-auto px-4 py-2 md:px-6 md:py-2 max-w-7xl">
             {children}
           </div>
         </main>

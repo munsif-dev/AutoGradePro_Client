@@ -634,7 +634,7 @@ const AssignmentDetailPage = () => {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen flex flex-col p-4 md:p-8 bg-purple-50">
+      <div className="min-h-screen flex flex-col p-1 md:p-8 bg-purple-50">
         {/* Header Section with Breadcrumb and Back Button */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center justify-between mb-6">
           <div className="flex items-center gap-2">
