@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import api from "@/lib/api";
 import ProtectedRoute from "@/app/_components/ProtectedRoutes";
@@ -19,9 +19,6 @@ import {
   CheckSquare,
   BarChart2,
   BookOpen,
-  Users,
-  ChevronDown,
-  Info,
   RefreshCw,
   Check,
   X,
@@ -30,6 +27,16 @@ import {
   SortDesc,
   FileQuestion,
   ExternalLink,
+  Info,
+  ChevronDown,
+  ArrowDownToLine,
+  ArrowUpToLine,
+  MoreHorizontal,
+  CheckCheck,
+  UploadCloud,
+  Eye,
+  FileBarChart2,
+  Users
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import GradingProgressModal from "@/app/(dashboard)/(routes)/module/[moduleId]/[assignmentId]/_components/GradingProgressModal";
@@ -79,10 +86,14 @@ const AssignmentDetailPage = () => {
   const [hasMarkingScheme, setHasMarkingScheme] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [sortField, setSortField] = useState<
     "file_name" | "uploaded_at" | "score"
   >("uploaded_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [selectedFiles, setSelectedFiles] = useState<number[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
 
   // Grading progress state
   const [showGradingModal, setShowGradingModal] = useState(false);
@@ -98,36 +109,69 @@ const AssignmentDetailPage = () => {
   });
   const [isGrading, setIsGrading] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    confirmAction: () => void;
+  }>({
+    show: false,
+    title: "",
+    message: "",
+    confirmAction: () => {},
+  });
 
-  useEffect(() => {
-    if (assignmentId) {
-      fetchAssignmentDetails();
-      fetchUploadedFiles();
-      fetchMarkingScheme();
+  const loadData = useCallback(async () => {
+    if (!assignmentId) return;
+    
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchAssignmentDetails(),
+        fetchUploadedFiles(),
+        fetchMarkingScheme()
+      ]);
+      setLastRefreshed(new Date());
+    } catch (error) {
+      console.error("Error loading data:", error);
+    } finally {
+      setIsRefreshing(false);
     }
   }, [assignmentId]);
 
-  const fetchAssignmentDetails = () => {
+  useEffect(() => {
+    if (assignmentId) {
+      loadData();
+    }
+  }, [assignmentId, loadData]);
+
+  // Reset selection when files change
+  useEffect(() => {
+    setSelectedFiles([]);
+    setSelectAll(false);
+  }, [uploadedFiles]);
+
+  const fetchAssignmentDetails = async () => {
     if (!assignmentId) return;
     setIsLoading(true);
-    api
-      .get(`/api/assignment/${assignmentId}/`)
-      .then((res) => {
-        setAssignment(res.data);
-        setIsLoading(false);
-      })
-      .catch((err) => {
-        toast.error("Failed to fetch assignment details");
-        setIsLoading(false);
-      });
+    try {
+      const res = await api.get(`/api/assignment/${assignmentId}/`);
+      setAssignment(res.data);
+      setIsLoading(false);
+    } catch (err) {
+      toast.error("Failed to fetch assignment details");
+      setIsLoading(false);
+    }
   };
 
-  const fetchUploadedFiles = () => {
+  const fetchUploadedFiles = async () => {
     if (!assignmentId) return;
-    api
-      .get(`/api/submission/${assignmentId}/files/`)
-      .then((res) => setUploadedFiles(res.data))
-      .catch((err) => toast.error("Failed to fetch uploaded files"));
+    try {
+      const res = await api.get(`/api/submission/${assignmentId}/files/`);
+      setUploadedFiles(res.data);
+    } catch (err) {
+      toast.error("Failed to fetch uploaded files");
+    }
   };
 
   const fetchMarkingScheme = async () => {
@@ -157,15 +201,50 @@ const AssignmentDetailPage = () => {
   };
 
   const deleteFile = (fileId: number) => {
-    if (confirm("Are you sure you want to delete this file?")) {
-      api
-        .delete(`/api/submission/${assignmentId}/delete-file/${fileId}/`)
-        .then((res) => {
+    setShowConfirmDialog({
+      show: true,
+      title: "Delete File",
+      message: "Are you sure you want to delete this file? This action cannot be undone.",
+      confirmAction: async () => {
+        try {
+          await api.delete(`/api/submission/${assignmentId}/delete-file/${fileId}/`);
           toast.success("File deleted successfully!");
           fetchUploadedFiles();
-        })
-        .catch((err) => toast.error("Failed to delete file"));
-    }
+          setShowConfirmDialog({ show: false, title: "", message: "", confirmAction: () => {} });
+        } catch (err) {
+          toast.error("Failed to delete file");
+        }
+      }
+    });
+  };
+
+  const deleteSelectedFiles = () => {
+    if (selectedFiles.length === 0) return;
+    
+    setShowConfirmDialog({
+      show: true,
+      title: "Delete Selected Files",
+      message: `Are you sure you want to delete ${selectedFiles.length} selected file(s)? This action cannot be undone.`,
+      confirmAction: async () => {
+        setIsLoading(true);
+        try {
+          // Delete files one by one
+          const promises = selectedFiles.map(fileId => 
+            api.delete(`/api/submission/${assignmentId}/delete-file/${fileId}/`)
+          );
+          await Promise.all(promises);
+          
+          toast.success(`Successfully deleted ${selectedFiles.length} file(s)`);
+          fetchUploadedFiles();
+          setSelectedFiles([]);
+          setShowConfirmDialog({ show: false, title: "", message: "", confirmAction: () => {} });
+        } catch (err) {
+          toast.error("Failed to delete some files");
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    });
   };
 
   const updateGradingProgress = (
@@ -235,16 +314,32 @@ const AssignmentDetailPage = () => {
 
   const gradeSubmissions = async () => {
     if (!assignmentId || isGrading) return;
+    
+    if (!hasMarkingScheme) {
+      toast.warning(
+        "Marking scheme not configured! Please set up a marking scheme first.", 
+        { autoClose: 5000 }
+      );
+      return;
+    }
 
     // Initialize grading process
     setIsGrading(true);
 
     // Prepare grading files array from uploaded files
-    const filesToGrade = uploadedFiles.map((file) => ({
-      id: file.id,
-      file_name: file.file_name,
-      status: "pending" as const,
-    }));
+    const filesToGrade = uploadedFiles
+      .filter(file => selectedFiles.length > 0 ? selectedFiles.includes(file.id) : true)
+      .map((file) => ({
+        id: file.id,
+        file_name: file.file_name,
+        status: "pending" as const,
+      }));
+
+    if (filesToGrade.length === 0) {
+      toast.warning("No files selected for grading");
+      setIsGrading(false);
+      return;
+    }
 
     // Reset grading stats
     setGradingStats({
@@ -280,6 +375,12 @@ const AssignmentDetailPage = () => {
       );
 
       toast.success("Grading completed successfully!");
+      setLastRefreshed(new Date());
+      
+      // Clear selection after grading
+      if (selectedFiles.length > 0) {
+        setSelectedFiles([]);
+      }
     } catch (err) {
       // Error handling done in simulateGradingProcess
     } finally {
@@ -287,36 +388,41 @@ const AssignmentDetailPage = () => {
     }
   };
 
-  const clearGradingResults = async () => {
-    if (!assignmentId || !window.confirm("Are you sure you want to clear all grading results? This action cannot be undone.")) {
-      return;
-    }
-
-    try {
-      const response = await api.delete(
-        `/api/assignment/${assignmentId}/clear-grading-results/`
-      );
-      
-      // Reset scores in the UI
-      setUploadedFiles(prevFiles => 
-        prevFiles.map(file => ({ ...file, score: undefined }))
-      );
-      
-      // Update stats
-      setGradingStats(prevStats => ({
-        ...prevStats,
-        completedFiles: 0,
-        totalScore: 0,
-        averageScore: 0,
-        passedFiles: 0,
-        failedFiles: 0
-      }));
-      
-      toast.success("Grading results cleared successfully!");
-    } catch (error) {
-      console.error("Error clearing grading results:", error);
-      toast.error("Failed to clear grading results");
-    }
+  const clearGradingResults = () => {
+    setShowConfirmDialog({
+      show: true,
+      title: "Clear Grading Results",
+      message: "Are you sure you want to clear all grading results? This action cannot be undone.",
+      confirmAction: async () => {
+        if (!assignmentId) return;
+        
+        try {
+          await api.delete(`/api/assignment/${assignmentId}/clear-grading-results/`);
+          
+          // Reset scores in the UI
+          setUploadedFiles(prevFiles => 
+            prevFiles.map(file => ({ ...file, score: undefined }))
+          );
+          
+          // Update stats
+          setGradingStats(prevStats => ({
+            ...prevStats,
+            completedFiles: 0,
+            totalScore: 0,
+            averageScore: 0,
+            passedFiles: 0,
+            failedFiles: 0
+          }));
+          
+          toast.success("Grading results cleared successfully!");
+          setLastRefreshed(new Date());
+          setShowConfirmDialog({ show: false, title: "", message: "", confirmAction: () => {} });
+        } catch (error) {
+          console.error("Error clearing grading results:", error);
+          toast.error("Failed to clear grading results");
+        }
+      }
+    });
   };
 
   // Filter files based on search query
@@ -360,6 +466,25 @@ const AssignmentDetailPage = () => {
     ) : (
       <SortDesc className="w-4 h-4" />
     );
+  };
+
+  // Handle select file checkbox
+  const toggleFileSelection = (fileId: number) => {
+    setSelectedFiles(prev => 
+      prev.includes(fileId)
+        ? prev.filter(id => id !== fileId)
+        : [...prev, fileId]
+    );
+  };
+
+  // Handle select all checkbox
+  const toggleSelectAll = () => {
+    if (selectAll) {
+      setSelectedFiles([]);
+    } else {
+      setSelectedFiles(sortedFiles.map(file => file.id));
+    }
+    setSelectAll(!selectAll);
   };
 
   // Calculate stats
@@ -458,6 +583,20 @@ const AssignmentDetailPage = () => {
       minute: "2-digit",
     });
   };
+  
+  // Format relative time
+  const formatRelativeTime = (date: Date) => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    
+    if (diffSec < 60) return "just now";
+    if (diffMin < 60) return `${diffMin} minute${diffMin > 1 ? 's' : ''} ago`;
+    if (diffHour < 24) return `${diffHour} hour${diffHour > 1 ? 's' : ''} ago`;
+    return formatDate(date.toISOString());
+  };
 
   // Check if due date is in the past
   const isDueDatePassed = (dueDate: string) => {
@@ -499,6 +638,7 @@ const AssignmentDetailPage = () => {
         {/* Header Section with Breadcrumb and Back Button */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center justify-between mb-6">
           <div className="flex items-center gap-2">
+            <BackButton />
             <div className="text-gray-500 text-sm hidden sm:flex items-center">
               <span
                 className="hover:text-purple-600 cursor-pointer"
@@ -521,12 +661,29 @@ const AssignmentDetailPage = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            {lastRefreshed && (
+              <div className="hidden md:block text-xs text-gray-500 mr-2">
+                Last updated: {formatRelativeTime(lastRefreshed)}
+              </div>
+            )}
+            
+            <button
+              onClick={loadData}
+              disabled={isRefreshing}
+              className="text-sm bg-white hover:bg-gray-50 text-gray-700 rounded-md px-3 py-1.5 flex items-center gap-1 border border-gray-300 shadow-sm transition-colors"
+              title="Refresh data"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+            
             <button
               onClick={exportToExcel}
               className="text-sm bg-white hover:bg-gray-50 text-gray-700 rounded-md px-3 py-1.5 flex items-center gap-1 border border-gray-300 shadow-sm transition-colors"
+              title="Export to Excel"
             >
               <Download className="w-4 h-4" />
-              <span>Export</span>
+              <span className="hidden sm:inline">Export</span>
             </button>
 
             <button
@@ -534,6 +691,7 @@ const AssignmentDetailPage = () => {
                 router.push(`/module/${moduleId}/${assignmentId}/report`)
               }
               className="text-sm bg-white hover:bg-gray-50 text-gray-700 rounded-md px-3 py-1.5 flex items-center gap-1 border border-gray-300 shadow-sm transition-colors"
+              title="View detailed report"
             >
               <BarChart2 className="w-4 h-4" />
               <span className="hidden sm:inline">Report</span>
@@ -548,13 +706,19 @@ const AssignmentDetailPage = () => {
               <div className="p-6 pb-4 border-b border-gray-100">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2 group">
-                      {assignment.title}
-                      <span className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-sm font-normal text-purple-500 cursor-pointer">
-                        {/* Optional edit button */}
-                      </span>
-                    </h1>
-                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-2">
+                    <div className="flex items-center">
+                      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2 group">
+                        {assignment.title}
+                      </h1>
+                      <button
+                        onClick={() => router.push(`/module/${moduleId}/edit-assignment/${assignment.id}`)}
+                        className="ml-2 text-purple-500 hover:text-purple-700 hidden sm:block"
+                        title="Edit assignment"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-2">
                       <div className="flex items-center">
                         <Calendar className="w-4 h-4 mr-1 text-purple-500" />
                         <span
@@ -600,8 +764,9 @@ const AssignmentDetailPage = () => {
 
               {/* Stats Summary */}
               <div className="bg-gray-50 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="bg-white p-3 rounded-lg shadow-sm flex flex-col">
-                  <span className="text-xs text-gray-500 mb-1">
+                <div className="bg-white p-3 rounded-lg shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                  <span className="text-xs text-gray-500 mb-1 flex items-center">
+                    <FileText className="w-3 h-3 mr-1 text-purple-500" />
                     Total Submissions
                   </span>
                   <span className="text-xl font-bold text-gray-800">
@@ -618,8 +783,11 @@ const AssignmentDetailPage = () => {
                   </div>
                 </div>
 
-                <div className="bg-white p-3 rounded-lg shadow-sm flex flex-col">
-                  <span className="text-xs text-gray-500 mb-1">Pass Rate</span>
+                <div className="bg-white p-3 rounded-lg shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                  <span className="text-xs text-gray-500 mb-1 flex items-center">
+                    <CheckCheck className="w-3 h-3 mr-1 text-green-500" />
+                    Pass Rate
+                  </span>
                   <span className="text-xl font-bold text-gray-800">
                     {stats.gradedFiles > 0
                       ? `${stats.passRate.toFixed(1)}%`
@@ -636,8 +804,9 @@ const AssignmentDetailPage = () => {
                   </div>
                 </div>
 
-                <div className="bg-white p-3 rounded-lg shadow-sm flex flex-col">
-                  <span className="text-xs text-gray-500 mb-1">
+                <div className="bg-white p-3 rounded-lg shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                  <span className="text-xs text-gray-500 mb-1 flex items-center">
+                    <FileBarChart2 className="w-3 h-3 mr-1 text-blue-500" />
                     Average Score
                   </span>
                   <span className="text-xl font-bold text-gray-800">
@@ -652,8 +821,9 @@ const AssignmentDetailPage = () => {
                   </div>
                 </div>
 
-                <div className="bg-white p-3 rounded-lg shadow-sm flex flex-col">
-                  <span className="text-xs text-gray-500 mb-1">
+                <div className="bg-white p-3 rounded-lg shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                  <span className="text-xs text-gray-500 mb-1 flex items-center">
+                    <CheckSquare className="w-3 h-3 mr-1 text-purple-500" />
                     Marking Scheme
                   </span>
                   <span className="text-md font-medium text-gray-800">
@@ -688,8 +858,9 @@ const AssignmentDetailPage = () => {
                     )
                   }
                   className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition shadow-sm"
+                  title="Upload student answer files"
                 >
-                  <FileUp className="w-4 h-4" />
+                  <UploadCloud className="w-4 h-4" />
                   <span>Upload Answers</span>
                 </button>
 
@@ -701,14 +872,21 @@ const AssignmentDetailPage = () => {
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-green-600 hover:bg-green-700"
                   } text-white rounded-md transition shadow-sm`}
-                  title={!hasMarkingScheme ? "Marking scheme must be configured before grading" : ""}
+                  title={!hasMarkingScheme ? "Marking scheme must be configured before grading" : selectedFiles.length > 0 ? `Grade ${selectedFiles.length} selected files` : "Grade all files"}
                 >
                   {isGrading ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
                   ) : (
                     <FileText className="w-4 h-4" />
                   )}
-                  <span>{isGrading ? "Grading..." : "Grade Files"}</span>
+                  <span>
+                    {isGrading 
+                      ? "Grading..." 
+                      : selectedFiles.length > 0 
+                        ? `Grade Selected (${selectedFiles.length})` 
+                        : "Grade All Files"
+                    }
+                  </span>
                 </button>
                 
                 <button
@@ -749,9 +927,53 @@ const AssignmentDetailPage = () => {
                       className="w-full sm:w-56 pl-9 pr-4 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
                     <Search className="absolute left-2.5 top-1.5 w-4 h-4 text-gray-400" />
+                    {searchQuery && (
+                      <button
+                        className="absolute right-2.5 top-1.5 text-gray-400 hover:text-gray-600"
+                        onClick={() => setSearchQuery("")}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
+
+              {/* Batch Actions Bar - Shows when files are selected */}
+              {selectedFiles.length > 0 && (
+                <div className="bg-purple-50 p-3 border-b border-purple-100 flex items-center justify-between">
+                  <div className="text-sm font-medium text-purple-700">
+                    {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={gradeSubmissions}
+                      disabled={!hasMarkingScheme || isGrading}
+                      className="text-xs py-1 px-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-1 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      title={!hasMarkingScheme ? "Marking scheme required" : ""}
+                    >
+                      <FileText className="w-3 h-3" />
+                      <span>Grade Selected</span>
+                    </button>
+                    <button 
+                      onClick={deleteSelectedFiles}
+                      className="text-xs py-1 px-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Delete Selected</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setSelectedFiles([]);
+                        setSelectAll(false);
+                      }}
+                      className="text-xs py-1 px-2 border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                    >
+                      Clear Selection
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Table and List Views */}
               {sortedFiles.length > 0 ? (
@@ -761,6 +983,16 @@ const AssignmentDetailPage = () => {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
+                          <th className="px-3 py-3 text-left">
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={selectAll}
+                                onChange={toggleSelectAll}
+                                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                              />
+                            </div>
+                          </th>
                           <th
                             className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                             onClick={() => handleSort("file_name")}
@@ -797,8 +1029,18 @@ const AssignmentDetailPage = () => {
                         {sortedFiles.map((file) => (
                           <tr
                             key={file.id}
-                            className="hover:bg-gray-50 transition-colors"
+                            className={`hover:bg-gray-50 transition-colors ${
+                              selectedFiles.includes(file.id) ? "bg-purple-50" : ""
+                            }`}
                           >
+                            <td className="px-3 py-4">
+                              <input
+                                type="checkbox"
+                                checked={selectedFiles.includes(file.id)}
+                                onChange={() => toggleFileSelection(file.id)}
+                                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                              />
+                            </td>
                             <td className="px-6 py-4">
                               <div
                                 onClick={() =>
@@ -821,7 +1063,11 @@ const AssignmentDetailPage = () => {
                             <td className="px-6 py-4 whitespace-nowrap">
                               {file.score !== undefined ? (
                                 <div className="flex items-center">
-                                  <div className="mr-3 w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm bg-gradient-to-br from-purple-500 to-purple-700 shadow-sm">
+                                  <div className={`mr-3 w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm ${
+                                    file.score >= passScore 
+                                      ? "bg-gradient-to-br from-green-500 to-green-700" 
+                                      : "bg-gradient-to-br from-red-500 to-red-700"
+                                  } shadow-sm`}>
                                     {file.score}
                                   </div>
                                   <div>
@@ -858,7 +1104,7 @@ const AssignmentDetailPage = () => {
                                   className="text-purple-600 hover:text-purple-700 p-1 rounded hover:bg-purple-50"
                                   title="View details"
                                 >
-                                  <FileText className="w-4 h-4" />
+                                  <Eye className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => deleteFile(file.id)}
@@ -881,9 +1127,19 @@ const AssignmentDetailPage = () => {
                       {sortedFiles.map((file) => (
                         <li
                           key={file.id}
-                          className="p-4 hover:bg-gray-50 transition-colors"
+                          className={`p-4 hover:bg-gray-50 transition-colors ${
+                            selectedFiles.includes(file.id) ? "bg-purple-50" : ""
+                          }`}
                         >
                           <div className="flex items-start justify-between">
+                            <div className="flex items-start mr-2">
+                              <input
+                                type="checkbox"
+                                checked={selectedFiles.includes(file.id)}
+                                onChange={() => toggleFileSelection(file.id)}
+                                className="h-4 w-4 mt-1 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                              />
+                            </div>
                             <div
                               className="flex-1 cursor-pointer"
                               onClick={() =>
@@ -929,7 +1185,7 @@ const AssignmentDetailPage = () => {
                               }
                               className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 flex items-center"
                             >
-                              <FileText className="w-3 h-3 mr-1" />
+                              <Eye className="w-3 h-3 mr-1" />
                               View
                             </button>
                             <button
@@ -964,7 +1220,7 @@ const AssignmentDetailPage = () => {
                         }
                         className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition shadow-sm"
                       >
-                        <FileUp className="w-4 h-4" />
+                        <UploadCloud className="w-4 h-4" />
                         <span>Upload Answers</span>
                       </button>
                     </>
@@ -1013,6 +1269,13 @@ const AssignmentDetailPage = () => {
                         files
                       </p>
                     </div>
+                    <div>
+                      {lastRefreshed && (
+                        <p className="text-xs text-gray-500">
+                          Last updated: {formatRelativeTime(lastRefreshed)}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -1037,6 +1300,30 @@ const AssignmentDetailPage = () => {
         )}
       </div>
 
+      {/* Confirmation Dialog */}
+      {showConfirmDialog.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">{showConfirmDialog.title}</h3>
+            <p className="text-gray-600 mb-4">{showConfirmDialog.message}</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowConfirmDialog({...showConfirmDialog, show: false})}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={showConfirmDialog.confirmAction}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Grading Progress Modal */}
       <GradingProgressModal
         isOpen={showGradingModal}
@@ -1060,5 +1347,24 @@ const AssignmentDetailPage = () => {
     </ProtectedRoute>
   );
 };
+
+// Missing Edit icon component
+const Edit = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    <path d="m15 5 4 4" />
+  </svg>
+);
 
 export default AssignmentDetailPage;
