@@ -40,6 +40,7 @@ const SettingsPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [isDragOver, setIsDragOver] = useState(false);
+  const [originalData, setOriginalData] = useState(null); // Store original data to track changes
   const router = useRouter();
 
   useEffect(() => {
@@ -51,16 +52,25 @@ const SettingsPage = () => {
     try {
       const response = await api.get("/api/lecturer/details/");
       const data = response.data;
-      setUser({
+      
+      const userData = {
         id: data.user.id,
         username: data.user.username,
         email: data.user.email,
         first_name: data.user.first_name,
         last_name: data.user.last_name,
-        university: data.university,
-        department: data.department,
+        university: data.university || "",
+        department: data.department || "",
         profile_picture: data.profile_picture,
-      });
+      };
+      
+      setUser(userData);
+      setOriginalData(userData); // Store original data
+      
+      // Set profile picture preview if it exists
+      if (data.profile_picture) {
+        setProfilePicPreview(data.profile_picture);
+      }
     } catch (err) {
       console.error("Failed to fetch lecturer details:", err);
       toast.error("Failed to load your profile. Please try again later.");
@@ -90,7 +100,27 @@ const SettingsPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleUpdate = async (e: React.FormEvent) => {
+  // Create a function to detect changes in user data
+  const getChangedFields = () => {
+    if (!originalData) return user;
+    
+    const changes = {};
+    
+    // Compare and only include fields that changed
+    if (user.email !== originalData.email) changes.email = user.email;
+    if (user.first_name !== originalData.first_name) changes.first_name = user.first_name;
+    if (user.last_name !== originalData.last_name) changes.last_name = user.last_name;
+    if (user.university !== originalData.university) changes.university = user.university;
+    if (user.department !== originalData.department) changes.department = user.department;
+    
+    // Always include ID and username for reference
+    changes.id = user.id;
+    changes.username = user.username;
+    
+    return changes;
+  };
+
+  const handleUpdate = async (e) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -100,36 +130,75 @@ const SettingsPage = () => {
 
     setIsSaving(true);
 
-    const updatedData = {
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        password: newPassword ? newPassword : undefined,
-      },
-      university: user.university,
-      department: user.department,
-      profile_picture: user.profile_picture,
+    // Only include password if provided
+    const userData = {
+      ...getChangedFields(),
+      ...(newPassword ? { password: newPassword } : {})
     };
 
-    const formData = new FormData();
-    if (user.profile_picture instanceof File) {
-      formData.append("profile_picture", user.profile_picture);
-    }
-    formData.append("user", JSON.stringify(updatedData.user));
-    formData.append("university", user.university || "");
-    formData.append("department", user.department || "");
-
     try {
-      await api.put("/api/lecturer/details/", formData);
+      // Create FormData for mixed content (file + JSON)
+      const formData = new FormData();
+      
+      // Only append profile picture if it's a File object (newly uploaded)
+      if (user.profile_picture instanceof File) {
+        formData.append("profile_picture", user.profile_picture);
+      }
+      
+      // Prepare user data - only include non-empty values and exclude undefined
+      const cleanUserData = Object.fromEntries(
+        Object.entries(userData).filter(([_, v]) => v !== undefined && v !== "")
+      );
+      
+      // Add user JSON and other fields
+      formData.append("user", JSON.stringify(cleanUserData));
+      formData.append("university", user.university || "");
+      formData.append("department", user.department || "");
+      
+      // Optional logging for debugging
+      console.log("Sending update with data:", {
+        user: cleanUserData,
+        university: user.university,
+        department: user.department,
+        hasProfilePic: user.profile_picture instanceof File
+      });
+
+      // Send update request
+      const response = await api.put("/api/lecturer/details/", formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        }
+      });
+      
+      // Update the original data reference after successful update
+      setOriginalData({...user});
+      
       toast.success("Your profile has been updated successfully");
       setNewPassword("");
       setConfirmPassword("");
+      
+      // Update the user state with the response data to ensure we have the latest
+      if (response.data) {
+        setUser({
+          id: response.data.user.id,
+          username: response.data.user.username,
+          email: response.data.user.email,
+          first_name: response.data.user.first_name,
+          last_name: response.data.user.last_name,
+          university: response.data.university || "",
+          department: response.data.department || "",
+          profile_picture: response.data.profile_picture,
+        });
+      }
     } catch (error) {
       console.error("Failed to update user details:", error);
-      toast.error("Failed to update your profile. Please try again.");
+      
+      // More detailed error message if available
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.detail || 
+                          "Failed to update your profile. Please try again.";
+      
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -194,6 +263,7 @@ const SettingsPage = () => {
             <p className="opacity-80">Manage your profile and preferences</p>
           </div>
 
+          {/* Rest of the UI remains the same */}
           <div className="p-8">
             <div className="flex flex-col md:flex-row gap-8">
               {/* Profile Picture Section */}
