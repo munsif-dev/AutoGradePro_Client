@@ -10,7 +10,8 @@ const nextConfig = {
       },
       {
         // Add your production backend domain here
-        protocol: 'https', // or http if your backend isn't using https
+        // http://54.90.145.153/api/lecturer/register/
+        protocol: 'http', // or http if your backend isn't using https
         hostname: process.env.HOST_ADDRESS,
         pathname: '/media/**',
       },
