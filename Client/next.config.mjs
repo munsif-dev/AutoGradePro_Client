@@ -11,7 +11,7 @@ const nextConfig = {
       {
         // Add your production backend domain here
         protocol: 'https', // or http if your backend isn't using https
-        hostname: 'your-backend-domain.com',
+        hostname: process.env.HOST_ADDRESS,
         pathname: '/media/**',
       },
     ],
