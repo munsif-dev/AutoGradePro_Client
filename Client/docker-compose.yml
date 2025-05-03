@@ -1,0 +1,19 @@
+# autogradepro-frontend/docker-compose.yml
+version: "3.8"
+
+services:
+  frontend:
+    build: .
+    container_name: autogradepro-frontend
+    networks:
+      - app_network
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+
+networks:
+  app_network:
+    external: true
+    name: autogradepro_network
