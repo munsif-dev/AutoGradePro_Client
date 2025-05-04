@@ -3,7 +3,9 @@ version: "3.8"
 
 services:
   frontend:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: autogradepro-frontend
     networks:
       - app_network
