@@ -32,7 +32,7 @@ const nextConfig = {
     // Also ignore ESLint errors during build
     ignoreDuringBuilds: true,
   },
-  output: "export",
+  
   distDir: ".next",
   images: {
     unoptimized: true,
