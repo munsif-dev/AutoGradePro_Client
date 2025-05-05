@@ -1,36 +1,36 @@
-# autogradepro-frontend/Dockerfile
-FROM node:20-alpine as builder
+FROM node:20-alpine AS builder
 
+# Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json* ./
 
-# Install dependencies with legacy peer deps flag
+# Install dependencies
 RUN npm install --legacy-peer-deps
 
-# Copy source code
+# Copy application code
 COPY . .
 
 # Build the application
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine
+# Production image
+FROM node:20-alpine AS runner
 
-# Copy custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-# Copy built files - fixed path for standard Next.js output
-COPY --from=builder /app/.next/static /usr/share/nginx/html/_next/static
-COPY --from=builder /app/public /usr/share/nginx/html/public
-COPY --from=builder /app/node_modules /usr/share/nginx/html/node_modules
-COPY --from=builder /app/package.json /usr/share/nginx/html/package.json
-COPY --from=builder /app/.next/server /usr/share/nginx/html/.next/server
+# Copy built assets from builder
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/public ./public
 
-# Create a simple startup script
-COPY --from=builder /app/next.config.mjs /usr/share/nginx/html/next.config.mjs
+# Set to production environment
+ENV NODE_ENV production
 
-EXPOSE 80
+# Expose the listening port
+EXPOSE 3000
 
-CMD ["nginx", "-g", "daemon off;"]
+# Run the application
+CMD ["npm", "start"]
