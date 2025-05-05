@@ -2,7 +2,7 @@ import axios from "axios"; //Axios simplifies making requests, handling response
 import { ACCESS_TOKEN } from "./constant";
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_DJANGO_API_URL,
+  baseURL: process.env.NEXT_PUBLIC_DJANGO_API_URL || "http://autogradepro-backend:8000",
 });
 
 api.interceptors.request.use(
