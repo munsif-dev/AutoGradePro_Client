@@ -29,7 +29,7 @@ COPY --from=builder /app/package.json /usr/share/nginx/html/package.json
 COPY --from=builder /app/.next/server /usr/share/nginx/html/.next/server
 
 # Create a simple startup script
-COPY --from=builder /app/next.config.js /usr/share/nginx/html/next.config.js
+COPY --from=builder /app/next.config.mjs /usr/share/nginx/html/next.config.mjs
 
 EXPOSE 80
 
