@@ -1,5 +1,4 @@
-# autogradepro-frontend/docker-compose.yml
-#version: "3.8"
+version: "3.8"
 
 services:
   frontend:
@@ -8,14 +7,17 @@ services:
       dockerfile: Dockerfile
     container_name: autogradepro-frontend
     networks:
-      - app_network
+      - autogradepro_network
     ports:
-      - "80:80"
+      - "80:3000"  # Map port 3000 from container to port 80 on host
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+      - NEXT_PUBLIC_DJANGO_API_URL=http://autogradepro-backend:8000 
+    depends_on:
+      - autogradepro-backend 
+
 
 networks:
-  app_network:
+  autogradepro_network:
     external: true
-    name: autogradepro_network
