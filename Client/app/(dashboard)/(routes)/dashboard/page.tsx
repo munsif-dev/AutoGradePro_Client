@@ -1077,7 +1077,10 @@ const Dashboard = () => {
                 Learn how to create modules, set up assignments, and use the
                 auto-grading features effectively with our comprehensive guides.
               </p>
-              <button className="px-6 py-2.5 bg-white text-light-2 rounded-xl shadow-md hover:bg-gray-100 transition-all flex items-center font-medium">
+              <button 
+                onClick={() => window.open("https://www.youtube.com", "_blank")}
+                className="px-6 py-2.5 bg-white text-light-2 rounded-xl shadow-md hover:bg-gray-100 transition-all flex items-center font-medium"
+              >
                 <HelpCircle className="w-4 h-4 mr-2" />
                 View Tutorials
               </button>
