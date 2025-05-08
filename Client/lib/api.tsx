@@ -2,7 +2,7 @@ import axios from "axios"; //Axios simplifies making requests, handling response
 import { ACCESS_TOKEN } from "./constant";
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_DJANGO_API_URL || "http://3.95.162.21:8000",
+  baseURL: process.env.NEXT_PUBLIC_DJANGO_API_URL || "http://44.220.165.141:8000",
 });
 
 api.interceptors.request.use(
