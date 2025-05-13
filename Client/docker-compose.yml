@@ -13,7 +13,7 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_DJANGO_API_URL=http://44.220.165.141:8000 
+      - NEXT_PUBLIC_DJANGO_API_URL=http://localhost:8000 
     
 
 
