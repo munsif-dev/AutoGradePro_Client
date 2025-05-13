@@ -85,57 +85,7 @@ const Hero = () => {
           </div>
         </div>
       </div> */}
-      <div className="w-full flex justify-center items-center mt-20 pt-16 ">
-        <div className="w-[1194px] h-[162px] relative">
-          <div className="left-[113px] top-0 absolute text-center text-[#894799] text-[40px] font-bold font-['Poppins']">
-            More than 2K Lecturers use AutoGradePro From
-          </div>
-          <div className="w-[1194px] h-[102px] pl-5 pr-[19.09px] pt-[31px] pb-[21px] left-0 top-[60px] absolute justify-center items-start gap-[93.03px] inline-flex">
-            <Image
-              className="w-[114.28px] h-[50px] object-contain"
-              src="/institutions/1-1.png"
-              alt="Institution Logo 1"
-              width={114}
-              height={50}
-            />
-            <Image
-              className="w-[114.28px] h-[50px] object-contain"
-              src="/institutions/1-2.png"
-              alt="Institution Logo 2"
-              width={114}
-              height={50}
-            />
-            <Image
-              className="w-[114.28px] h-[50px] object-contain"
-              src="/institutions/1-3.png"
-              alt="Institution Logo 3"
-              width={114}
-              height={50}
-            />
-            <Image
-              className="w-[114.28px] h-[50px] object-contain"
-              src="/institutions/1-4.png"
-              alt="Institution Logo 4"
-              width={114}
-              height={50}
-            />
-            <Image
-              className="w-[114.28px] h-[50px] object-contain"
-              src="/institutions/1-5.png"
-              alt="Institution Logo 5"
-              width={114}
-              height={50}
-            />
-            <Image
-              className="w-[114.28px] h-[50px] object-contain"
-              src="/institutions/1-6.png"
-              alt="Institution Logo 6"
-              width={114}
-              height={50}
-            />
-          </div>
-        </div>
-      </div>
+      
     </>
   );
 };

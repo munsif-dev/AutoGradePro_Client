@@ -163,6 +163,13 @@ const FileDetailPage = () => {
     }
   };
 
+  // Calculate percentage score based on marks awarded vs total possible marks
+  const calculatePercentageScore = () => {
+    if (!fileData) return 0;
+    const stats = getStats();
+    return Math.round((stats?.totalMarksAwarded || 0) / (stats?.totalPossibleMarks || 1) * 100);
+  };
+
   // Get grade color based on score
   const getGradeColor = (score: number) => {
     if (score >= 81) return "bg-green-600 text-white"; // A+
@@ -267,6 +274,8 @@ const FileDetailPage = () => {
       XLSX.utils.book_append_sheet(workbook, answersSheet, "Answers");
 
       const stats = getStats();
+      const percentageScore = calculatePercentageScore();
+      
       // Create summary sheet
       const summaryData = [
         ["ASSESSMENT RESULTS"],
@@ -277,12 +286,10 @@ const FileDetailPage = () => {
         [""],
         ["SCORING SUMMARY"],
         [""],
-        ["Raw Score", fileData.score],
-        ["Total Possible Marks", totalPossibleMarks],
-        ["Percentage Score", normalizedScore + "%"],
-        ["Pass Threshold", passScore + "%"],
-        ["Grade", getGradeLetter(normalizedScore)],
-        ["Result", isPassed(normalizedScore) ? "PASS" : "FAIL"],
+        ["Total Score", fileData.score],
+        ["Pass Threshold", passScore],
+        ["Grade", getGradeLetter(fileData.score)],
+        ["Result", isPassed(fileData.score) ? "PASS" : "FAIL"],
         [""],
         ["DETAILED BREAKDOWN"],
         [""],
@@ -361,6 +368,7 @@ const FileDetailPage = () => {
   }
 
   const stats = getStats();
+  const percentageScore = calculatePercentageScore();
 
   return (
     <ProtectedRoute>
@@ -482,29 +490,29 @@ const FileDetailPage = () => {
                     <div className="flex flex-col items-center">
                       <div
                         className={`flex flex-col items-center justify-center h-24 w-24 rounded-full ${getGradeColor(
-                          normalizedScore
+                          fileData.score
                         )} shadow-md`}
                       >
                         <span className="text-3xl font-bold">
-                          {getGradeLetter(normalizedScore)}
+                          {getGradeLetter(fileData.score)}
                         </span>
                         <span className="text-sm mt-1 font-medium">Grade</span>
                       </div>
                       <div className="mt-2 flex flex-col items-center">
                         <span className="font-semibold text-lg">
-                          {normalizedScore}%
+                          {fileData.score}%
                         </span>
                         <div className="text-xs text-gray-500 font-medium">
                           Raw: {fileData.score}/{totalPossibleMarks}
                         </div>
                         <span
                           className={`px-2 py-0.5 text-xs rounded-full ${
-                            isPassed(normalizedScore)
+                            isPassed(fileData.score)
                               ? "bg-green-100 text-green-800"
                               : "bg-red-100 text-red-800"
                           }`}
                         >
-                          {isPassed(normalizedScore) ? "PASS" : "FAIL"}
+                          {isPassed(fileData.score) ? "PASS" : "FAIL"}
                         </span>
                       </div>
                     </div>
@@ -559,7 +567,7 @@ const FileDetailPage = () => {
                     Status
                   </span>
                   <span className="text-xl font-bold text-gray-800">
-                    {isPassed(normalizedScore) ? "Passed" : "Failed"}
+                    {isPassed(fileData.score) ? "Passed" : "Failed"}
                   </span>
                   <div className="flex items-center mt-1 text-xs">
                     <span className="text-gray-500">
@@ -833,17 +841,17 @@ const FileDetailPage = () => {
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-gray-600">Raw Score</span>
                           <span className="font-medium">
-                            {fileData.score}/{totalPossibleMarks} ({normalizedScore}%)
+                            {fileData.score}/100
                           </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2.5">
                           <div
                             className={`h-2.5 rounded-full ${
-                              isPassed(normalizedScore)
+                              isPassed(fileData.score)
                                 ? "bg-green-500"
                                 : "bg-red-500"
                             }`}
-                            style={{ width: `${normalizedScore}%` }}
+                            style={{ width: `${fileData.score}%` }}
                           ></div>
                         </div>
                       </div>
@@ -855,12 +863,12 @@ const FileDetailPage = () => {
                           </span>
                           <span
                             className={`px-2 py-0.5 rounded text-xs font-medium ${
-                              isPassed(normalizedScore)
+                              isPassed(fileData.score)
                                 ? "bg-green-100 text-green-800"
                                 : "bg-red-100 text-red-800"
                             }`}
                           >
-                            {isPassed(normalizedScore) ? "PASSED" : "FAILED"}
+                            {isPassed(fileData.score) ? "PASSED" : "FAILED"}
                           </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2.5 relative">
@@ -870,11 +878,11 @@ const FileDetailPage = () => {
                           ></div>
                           <div
                             className={`h-2.5 rounded-full ${
-                              isPassed(normalizedScore)
+                              isPassed(fileData.score)
                                 ? "bg-green-500"
                                 : "bg-red-500"
                             }`}
-                            style={{ width: `${normalizedScore}%` }}
+                            style={{ width: `${fileData.score}%` }}
                           ></div>
                         </div>
                         <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -898,17 +906,16 @@ const FileDetailPage = () => {
                     <div className="flex items-center mb-4">
                       <div
                         className={`flex items-center justify-center h-16 w-16 rounded-full ${getGradeColor(
-                          normalizedScore
+                          fileData.score
                         )}`}
                       >
                         <span className="text-2xl font-bold">
-                          {getGradeLetter(normalizedScore)}
+                          {getGradeLetter(fileData.score)}
                         </span>
                       </div>
                       <div className="ml-4">
                         <p className="text-sm text-gray-500">Final Grade</p>
-                        <p className="text-2xl font-bold">{normalizedScore}%</p>
-                        <p className="text-xs text-gray-500">Raw: {fileData.score}/{totalPossibleMarks}</p>
+                        <p className="text-2xl font-bold">{fileData.score}%</p>
                       </div>
                     </div>
 
