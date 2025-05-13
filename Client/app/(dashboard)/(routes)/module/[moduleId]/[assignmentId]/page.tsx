@@ -56,24 +56,27 @@ interface FileDetail {
   file: string; // URL of the file
   file_name: string; // Name of the file
   uploaded_at: string;
-  score?: number; // Score of the file, optional
+  score?: number; // Raw score of the file, optional
 }
 
 interface GradingFile {
   id: number;
   file_name: string;
   status: "pending" | "grading" | "completed" | "error";
-  score?: number;
+  rawScore?: number;
+  score?: number; // Normalized percentage score
 }
 
 interface GradingStats {
   totalFiles: number;
   completedFiles: number;
+  totalRawScore: number;
   totalScore: number;
   averageScore: number;
   passedFiles: number;
   failedFiles: number;
   passScore: number;
+  totalPossibleMarks: number; // Total possible raw marks
 }
 
 const AssignmentDetailPage = () => {
@@ -83,6 +86,7 @@ const AssignmentDetailPage = () => {
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<FileDetail[]>([]);
   const [passScore, setPassScore] = useState(0);
+  const [totalPossibleMarks, setTotalPossibleMarks] = useState(100); // Default to 100
   const [hasMarkingScheme, setHasMarkingScheme] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -101,11 +105,13 @@ const AssignmentDetailPage = () => {
   const [gradingStats, setGradingStats] = useState<GradingStats>({
     totalFiles: 0,
     completedFiles: 0,
+    totalRawScore: 0,
     totalScore: 0,
     averageScore: 0,
     passedFiles: 0,
     failedFiles: 0,
     passScore: 40,
+    totalPossibleMarks: 100, // Default total possible marks
   });
   const [isGrading, setIsGrading] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
@@ -120,6 +126,12 @@ const AssignmentDetailPage = () => {
     message: "",
     confirmAction: () => {},
   });
+
+  // Function to convert raw score to percentage
+  const normalizeScore = (rawScore: number): number => {
+    if (totalPossibleMarks === 0) return 0;
+    return Math.round((rawScore / totalPossibleMarks) * 100);
+  };
 
   const loadData = useCallback(async () => {
     if (!assignmentId) return;
@@ -186,14 +198,22 @@ const AssignmentDetailPage = () => {
       );
       const { pass_score, answers } = response.data;
       setPassScore(pass_score ?? 40);
+      
+      // Calculate total possible marks from marking scheme
+      if (answers && Array.isArray(answers)) {
+        const totalMarks = answers.reduce((total, answer) => total + (answer.marks || 0), 0);
+        setTotalPossibleMarks(totalMarks || 100);
+        
+        // Update grading stats with total possible marks
+        setGradingStats((prev) => ({
+          ...prev,
+          totalPossibleMarks: totalMarks || 100,
+          passScore: pass_score ?? 40,
+        }));
+      }
+      
       // Check if marking scheme is configured by checking if answers exist and are not empty
       setHasMarkingScheme(answers && answers.length > 0);
-
-      // Update grading stats with pass score
-      setGradingStats((prev) => ({
-        ...prev,
-        passScore: pass_score ?? 40,
-      }));
     } catch (error) {
       console.error("Error fetching marking scheme:", error);
       setPassScore(40);
@@ -250,25 +270,42 @@ const AssignmentDetailPage = () => {
   const updateGradingProgress = (
     fileId: number,
     status: "pending" | "grading" | "completed" | "error",
-    score?: number
+    rawScore?: number
   ) => {
     setGradingFiles((prev) =>
-      prev.map((file) =>
-        file.id === fileId ? { ...file, status, score } : file
-      )
+      prev.map((file) => {
+        if (file.id === fileId) {
+          // Calculate normalized score if raw score is provided
+          const normalizedScore = rawScore !== undefined 
+            ? normalizeScore(rawScore) 
+            : undefined;
+            
+          return { 
+            ...file, 
+            status, 
+            rawScore, 
+            score: normalizedScore 
+          };
+        }
+        return file;
+      })
     );
 
     // Update statistics if a file has been completed
-    if (status === "completed" && score !== undefined) {
+    if (status === "completed" && rawScore !== undefined) {
+      const normalizedScore = normalizeScore(rawScore);
+      
       setGradingStats((prev) => {
         const newCompletedFiles = prev.completedFiles + 1;
-        const newTotalScore = prev.totalScore + score;
+        const newTotalRawScore = prev.totalRawScore + rawScore;
+        const newTotalScore = prev.totalScore + normalizedScore;
         const newAverageScore = newTotalScore / newCompletedFiles;
-        const isPassed = score >= prev.passScore;
+        const isPassed = normalizedScore >= prev.passScore;
 
         return {
           ...prev,
           completedFiles: newCompletedFiles,
+          totalRawScore: newTotalRawScore,
           totalScore: newTotalScore,
           averageScore: newAverageScore,
           passedFiles: isPassed ? prev.passedFiles + 1 : prev.passedFiles,
@@ -345,11 +382,13 @@ const AssignmentDetailPage = () => {
     setGradingStats({
       totalFiles: filesToGrade.length,
       completedFiles: 0,
+      totalRawScore: 0,
       totalScore: 0,
       averageScore: 0,
       passedFiles: 0,
       failedFiles: 0,
       passScore: passScore,
+      totalPossibleMarks: totalPossibleMarks,
     });
 
     setGradingFiles(filesToGrade);
@@ -367,10 +406,10 @@ const AssignmentDetailPage = () => {
       // Update the uploaded files with the new scores
       setUploadedFiles((prevFiles) =>
         prevFiles.map((file) => {
-          const updatedScore = gradingResults.find(
+          const updatedResult = gradingResults.find(
             (scoreObj: { id: number }) => scoreObj.id === file.id
           );
-          return updatedScore ? { ...file, score: updatedScore.score } : file;
+          return updatedResult ? { ...file, score: updatedResult.score } : file;
         })
       );
 
@@ -408,6 +447,7 @@ const AssignmentDetailPage = () => {
           setGradingStats(prevStats => ({
             ...prevStats,
             completedFiles: 0,
+            totalRawScore: 0,
             totalScore: 0,
             averageScore: 0,
             passedFiles: 0,
@@ -441,8 +481,9 @@ const AssignmentDetailPage = () => {
         ? new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime()
         : new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime();
     } else if (sortField === "score") {
-      const scoreA = a.score !== undefined ? a.score : -1;
-      const scoreB = b.score !== undefined ? b.score : -1;
+      // Use normalized scores for sorting
+      const scoreA = a.score !== undefined ? normalizeScore(a.score) : -1;
+      const scoreB = b.score !== undefined ? normalizeScore(b.score) : -1;
       return sortDirection === "asc" ? scoreA - scoreB : scoreB - scoreA;
     }
     return 0;
@@ -490,20 +531,35 @@ const AssignmentDetailPage = () => {
   // Calculate stats
   const getSubmissionStats = () => {
     const totalFiles = uploadedFiles.length;
-    const gradedFiles = uploadedFiles.filter(
-      (file) => file.score !== undefined
+    
+    // Process scores, ensuring we handle raw scores correctly
+    const processedFiles = uploadedFiles.map(file => ({
+      ...file,
+      normalizedScore: file.score !== undefined ? normalizeScore(file.score) : undefined
+    }));
+    
+    const gradedFiles = processedFiles.filter(
+      (file) => file.normalizedScore !== undefined
     ).length;
-    const passedFiles = uploadedFiles.filter(
-      (file) => file.score !== undefined && file.score >= passScore
+    
+    const passedFiles = processedFiles.filter(
+      (file) => file.normalizedScore !== undefined && file.normalizedScore >= passScore
     ).length;
+    
     const failedFiles = gradedFiles - passedFiles;
-    const avgScore =
-      gradedFiles > 0
-        ? uploadedFiles.reduce(
-            (sum, file) => sum + (file.score !== undefined ? file.score : 0),
-            0
-          ) / gradedFiles
-        : 0;
+    
+    const sumOfRawScores = uploadedFiles.reduce(
+      (sum, file) => sum + (file.score !== undefined ? file.score : 0),
+      0
+    );
+    
+    const sumOfNormalizedScores = processedFiles.reduce(
+      (sum, file) => sum + (file.normalizedScore !== undefined ? file.normalizedScore : 0),
+      0
+    );
+    
+    const avgNormalizedScore =
+      gradedFiles > 0 ? sumOfNormalizedScores / gradedFiles : 0;
 
     return {
       totalFiles,
@@ -511,7 +567,8 @@ const AssignmentDetailPage = () => {
       pendingFiles: totalFiles - gradedFiles,
       passedFiles,
       failedFiles,
-      avgScore,
+      totalRawScore: sumOfRawScores,
+      avgScore: avgNormalizedScore,
       passRate: gradedFiles > 0 ? (passedFiles / gradedFiles) * 100 : 0,
     };
   };
@@ -532,6 +589,7 @@ const AssignmentDetailPage = () => {
           : "N/A",
       ],
       ["Pass Score", `${passScore}%`],
+      ["Total Possible Marks", totalPossibleMarks],
       [""],
       ["Submission Statistics"],
       ["Total Submissions", stats.totalFiles],
@@ -545,17 +603,15 @@ const AssignmentDetailPage = () => {
 
     const statWorksheet = XLSX.utils.aoa_to_sheet(statsData);
 
-    // Create submissions sheet
+    // Create submissions sheet with both raw and normalized scores
     const fileData = uploadedFiles.map((file, index) => ({
       "#": index + 1,
       "File Name": file.file_name,
       "Uploaded At": new Date(file.uploaded_at).toLocaleString(),
-      Score: file.score !== undefined ? file.score : "Not graded",
-      Status:
-        file.score !== undefined
-          ? file.score >= passScore
-            ? "Pass"
-            : "Fail"
+      "Raw Score": file.score !== undefined ? `${file.score}/${totalPossibleMarks}` : "Not graded",
+      "Percentage Score": file.score !== undefined ? `${normalizeScore(file.score)}%` : "Not graded",
+      "Status": file.score !== undefined
+          ? normalizeScore(file.score) >= passScore ? "Pass" : "Fail"
           : "Not graded",
     }));
 
@@ -834,6 +890,11 @@ const AssignmentDetailPage = () => {
                     )}
                   </span>
                   <div className="mt-1">
+                    <span className="text-xs text-gray-500">
+                      Total marks: {totalPossibleMarks}
+                    </span>
+                  </div>
+                  <div className="mt-1">
                     <button
                       onClick={() =>
                         router.push(
@@ -1026,97 +1087,101 @@ const AssignmentDetailPage = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {sortedFiles.map((file) => (
-                          <tr
-                            key={file.id}
-                            className={`hover:bg-gray-50 transition-colors ${
-                              selectedFiles.includes(file.id) ? "bg-purple-50" : ""
-                            }`}
-                          >
-                            <td className="px-3 py-4">
-                              <input
-                                type="checkbox"
-                                checked={selectedFiles.includes(file.id)}
-                                onChange={() => toggleFileSelection(file.id)}
-                                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                              />
-                            </td>
-                            <td className="px-6 py-4">
-                              <div
-                                onClick={() =>
-                                  router.push(
-                                    `/module/${moduleId}/${assignmentId}/${file.id}/`
-                                  )
-                                }
-                                className="text-blue-600 hover:text-blue-700 cursor-pointer flex items-center group"
-                              >
-                                <FileText className="w-4 h-4 mr-2 text-blue-600 flex-shrink-0" />
-                                <span className="truncate max-w-xs">
-                                  {file.file_name}
-                                </span>
-                                <ExternalLink className="w-3.5 h-3.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {formatDate(file.uploaded_at)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {file.score !== undefined ? (
-                                <div className="flex items-center">
-                                  <div className={`mr-3 w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm ${
-                                    file.score >= passScore 
-                                      ? "bg-gradient-to-br from-green-500 to-green-700" 
-                                      : "bg-gradient-to-br from-red-500 to-red-700"
-                                  } shadow-sm`}>
-                                    {file.score}
-                                  </div>
-                                  <div>
-                                    <span
-                                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                        file.score >= passScore
-                                          ? "bg-green-100 text-green-800"
-                                          : "bg-red-100 text-red-800"
-                                      }`}
-                                    >
-                                      {file.score >= passScore
-                                        ? "PASS"
-                                        : "FAIL"}
-                                    </span>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      Pass: {passScore}%
-                                    </div>
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-                                  Not graded
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                              <div className="flex justify-center space-x-2">
-                                <button
+                        {sortedFiles.map((file) => {
+                          const normalizedScore = file.score !== undefined ? normalizeScore(file.score) : undefined;
+                          
+                          return (
+                            <tr
+                              key={file.id}
+                              className={`hover:bg-gray-50 transition-colors ${
+                                selectedFiles.includes(file.id) ? "bg-purple-50" : ""
+                              }`}
+                            >
+                              <td className="px-3 py-4">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedFiles.includes(file.id)}
+                                  onChange={() => toggleFileSelection(file.id)}
+                                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                />
+                              </td>
+                              <td className="px-6 py-4">
+                                <div
                                   onClick={() =>
                                     router.push(
                                       `/module/${moduleId}/${assignmentId}/${file.id}/`
                                     )
                                   }
-                                  className="text-purple-600 hover:text-purple-700 p-1 rounded hover:bg-purple-50"
-                                  title="View details"
+                                  className="text-blue-600 hover:text-blue-700 cursor-pointer flex items-center group"
                                 >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => deleteFile(file.id)}
-                                  className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50"
-                                  title="Delete file"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                                  <FileText className="w-4 h-4 mr-2 text-blue-600 flex-shrink-0" />
+                                  <span className="truncate max-w-xs">
+                                    {file.file_name}
+                                  </span>
+                                  <ExternalLink className="w-3.5 h-3.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {formatDate(file.uploaded_at)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                {file.score !== undefined ? (
+                                  <div className="flex items-center">
+                                    <div className={`mr-3 w-10 h-10 rounded-full flex items-center justify-center text-white font-medium text-sm ${
+                                      normalizedScore >= passScore 
+                                        ? "bg-gradient-to-br from-green-500 to-green-700" 
+                                        : "bg-gradient-to-br from-red-500 to-red-700"
+                                    } shadow-sm`}>
+                                      {normalizedScore}
+                                    </div>
+                                    <div>
+                                      <div className="text-xs text-gray-500 mb-1">
+                                        Raw: {file.score}/{totalPossibleMarks}
+                                      </div>
+                                      <span
+                                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                          normalizedScore >= passScore
+                                            ? "bg-green-100 text-green-800"
+                                            : "bg-red-100 text-red-800"
+                                        }`}
+                                      >
+                                        {normalizedScore >= passScore
+                                          ? "PASS"
+                                          : "FAIL"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    Not graded
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-center">
+                                <div className="flex justify-center space-x-2">
+                                  <button
+                                    onClick={() =>
+                                      router.push(
+                                        `/module/${moduleId}/${assignmentId}/${file.id}/`
+                                      )
+                                    }
+                                    className="text-purple-600 hover:text-purple-700 p-1 rounded hover:bg-purple-50"
+                                    title="View details"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteFile(file.id)}
+                                    className="text-red-600 hover:text-red-700 p-1 rounded hover:bg-red-50"
+                                    title="Delete file"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1124,80 +1189,89 @@ const AssignmentDetailPage = () => {
                   {/* Mobile Card View */}
                   <div className="md:hidden">
                     <ul className="divide-y divide-gray-200">
-                      {sortedFiles.map((file) => (
-                        <li
-                          key={file.id}
-                          className={`p-4 hover:bg-gray-50 transition-colors ${
-                            selectedFiles.includes(file.id) ? "bg-purple-50" : ""
-                          }`}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start mr-2">
-                              <input
-                                type="checkbox"
-                                checked={selectedFiles.includes(file.id)}
-                                onChange={() => toggleFileSelection(file.id)}
-                                className="h-4 w-4 mt-1 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                              />
-                            </div>
-                            <div
-                              className="flex-1 cursor-pointer"
-                              onClick={() =>
-                                router.push(
-                                  `/module/${moduleId}/${assignmentId}/${file.id}/`
-                                )
-                              }
-                            >
-                              <div className="flex items-center">
-                                <FileText className="w-4 h-4 mr-2 text-blue-600 flex-shrink-0" />
-                                <span className="text-blue-600 font-medium truncate">
-                                  {file.file_name}
-                                </span>
+                      {sortedFiles.map((file) => {
+                        const normalizedScore = file.score !== undefined ? normalizeScore(file.score) : undefined;
+                        
+                        return (
+                          <li
+                            key={file.id}
+                            className={`p-4 hover:bg-gray-50 transition-colors ${
+                              selectedFiles.includes(file.id) ? "bg-purple-50" : ""
+                            }`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-start mr-2">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedFiles.includes(file.id)}
+                                  onChange={() => toggleFileSelection(file.id)}
+                                  className="h-4 w-4 mt-1 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                />
                               </div>
-                              <div className="ml-6 text-xs text-gray-500 mt-1">
-                                Uploaded: {formatDate(file.uploaded_at)}
+                              <div
+                                className="flex-1 cursor-pointer"
+                                onClick={() =>
+                                  router.push(
+                                    `/module/${moduleId}/${assignmentId}/${file.id}/`
+                                  )
+                                }
+                              >
+                                <div className="flex items-center">
+                                  <FileText className="w-4 h-4 mr-2 text-blue-600 flex-shrink-0" />
+                                  <span className="text-blue-600 font-medium truncate">
+                                    {file.file_name}
+                                  </span>
+                                </div>
+                                <div className="ml-6 text-xs text-gray-500 mt-1">
+                                  Uploaded: {formatDate(file.uploaded_at)}
+                                </div>
+                                {file.score !== undefined && (
+                                  <div className="ml-6 text-xs text-gray-500 mt-1">
+                                    Raw Score: {file.score}/{totalPossibleMarks}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="ml-3 flex items-center">
+                                {normalizedScore !== undefined ? (
+                                  <span
+                                    className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                      normalizedScore >= passScore
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-red-100 text-red-800"
+                                    }`}
+                                  >
+                                    {normalizedScore}%
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-1 text-xs font-normal rounded-full bg-gray-100 text-gray-600">
+                                    Not graded
+                                  </span>
+                                )}
                               </div>
                             </div>
-                            <div className="ml-3 flex items-center">
-                              {file.score !== undefined ? (
-                                <span
-                                  className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                    file.score >= passScore
-                                      ? "bg-green-100 text-green-800"
-                                      : "bg-red-100 text-red-800"
-                                  }`}
-                                >
-                                  {file.score}%
-                                </span>
-                              ) : (
-                                <span className="px-2 py-1 text-xs font-normal rounded-full bg-gray-100 text-gray-600">
-                                  Not graded
-                                </span>
-                              )}
+                            <div className="mt-3 flex justify-end space-x-2">
+                              <button
+                                onClick={() =>
+                                  router.push(
+                                    `/module/${moduleId}/${assignmentId}/${file.id}/`
+                                  )
+                                }
+                                className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 flex items-center"
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
+                                View
+                              </button>
+                              <button
+                                onClick={() => deleteFile(file.id)}
+                                className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 flex items-center"
+                              >
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                Delete
+                              </button>
                             </div>
-                          </div>
-                          <div className="mt-3 flex justify-end space-x-2">
-                            <button
-                              onClick={() =>
-                                router.push(
-                                  `/module/${moduleId}/${assignmentId}/${file.id}/`
-                                )
-                              }
-                              className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 flex items-center"
-                            >
-                              <Eye className="w-3 h-3 mr-1" />
-                              View
-                            </button>
-                            <button
-                              onClick={() => deleteFile(file.id)}
-                              className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 flex items-center"
-                            >
-                              <Trash2 className="w-3 h-3 mr-1" />
-                              Delete
-                            </button>
-                          </div>
-                        </li>
-                      ))}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 </div>
@@ -1267,6 +1341,11 @@ const AssignmentDetailPage = () => {
                           {uploadedFiles.length}
                         </span>{" "}
                         files
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        Total possible marks: {totalPossibleMarks}
                       </p>
                     </div>
                     <div>

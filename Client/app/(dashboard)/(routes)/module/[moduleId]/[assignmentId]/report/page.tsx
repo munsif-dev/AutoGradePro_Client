@@ -61,20 +61,15 @@ const GRADE_BOUNDARIES = [
 
 // Add function to convert raw scores to percentages
 const convertToPercentage = (score: number, totalPossibleMarks: number = 100): number => {
-  // If the score is already a percentage (0-100) or the total marks is 100, return it as is
-  if ((score <= 100 && totalPossibleMarks === 100) || totalPossibleMarks === 0) {
-    return score;
-  }
-  
-  // Otherwise, convert to percentage
+  if (totalPossibleMarks === 0) return 0;
   return Math.round((score / totalPossibleMarks) * 100);
 };
 
 interface SubmissionWithRank {
   id: number;
   file_name: string;
-  score: number;
-  rawScore?: number; // Original score before percentage conversion
+  rawScore: number; // Original raw score
+  score: number;   // Normalized percentage score
   grade: string;
   rank: number;
   percentile: number;
@@ -93,18 +88,24 @@ interface GradeDistribution {
 interface FileDetail {
   id: number;
   file_name: string;
-  score: number;
+  score: number; // Raw score from API
 }
 
 interface Statistics {
-  highest: number;
-  lowest: number;
-  median: number;
-  average: number;
-  passed: number;
-  failed: number;
-  standardDeviation: number;
-  totalPossibleMarks: number;
+  highest: number;         // Highest raw score
+  lowest: number;          // Lowest raw score
+  median: number;          // Median raw score
+  average: number;         // Average raw score
+  passed: number;          // Number of passed submissions
+  failed: number;          // Number of failed submissions
+  standardDeviation: number; // Standard deviation of raw scores
+  totalPossibleMarks: number; // Total possible marks for the assignment
+  
+  // Normalized percentage stats (derived)
+  highestPercentage: number;
+  lowestPercentage: number;
+  medianPercentage: number;
+  averagePercentage: number;
 }
 
 const AssignmentReportPage = () => {
@@ -119,7 +120,8 @@ const AssignmentReportPage = () => {
     due_date: "",
     module: { name: "", code: "" },
   });
-  const [grades, setGrades] = useState<number[]>([]);
+  const [rawGrades, setRawGrades] = useState<number[]>([]); // Raw scores from API
+  const [normalizedGrades, setNormalizedGrades] = useState<number[]>([]); // Percentage scores (0-100)
   // Array to store file names corresponding to grades
   const [files, setFiles] = useState<FileDetail[]>([]);
   const [passScore, setPassScore] = useState(40); // Default pass score matches the C- threshold
@@ -132,6 +134,12 @@ const AssignmentReportPage = () => {
     failed: 0,
     standardDeviation: 0,
     totalPossibleMarks: 100, // Default to 100
+    
+    // Normalized stats
+    highestPercentage: 0,
+    lowestPercentage: 0,
+    medianPercentage: 0,
+    averagePercentage: 0,
   });
   const [activeTab, setActiveTab] = useState<"overview" | "distribution" | "rankings">("overview");
   const [showGradeInfo, setShowGradeInfo] = useState(false);
@@ -148,6 +156,16 @@ const AssignmentReportPage = () => {
     }
   }, [assignmentId]);
 
+  // When raw grades or totalPossibleMarks changes, recalculate normalized grades
+  useEffect(() => {
+    if (rawGrades.length > 0) {
+      const normalized = rawGrades.map(score => 
+        convertToPercentage(score, statistics.totalPossibleMarks)
+      );
+      setNormalizedGrades(normalized);
+    }
+  }, [rawGrades, statistics.totalPossibleMarks]);
+
   const fetchMarkingScheme = async () => {
     if (!assignmentId) return;
 
@@ -163,7 +181,26 @@ const AssignmentReportPage = () => {
       // If answers are available, calculate total possible marks
       if (answers && Array.isArray(answers)) {
         const totalMarks = answers.reduce((total, answer) => total + (answer.marks || 0), 0);
-        setStatistics(prev => ({ ...prev, totalPossibleMarks: totalMarks || 100 }));
+        
+        // Update statistics with new total possible marks and recalculate percentages
+        setStatistics(prev => {
+          const newTotalMarks = totalMarks || 100;
+          
+          // Recalculate normalized percentage values
+          const highestPct = convertToPercentage(prev.highest, newTotalMarks);
+          const lowestPct = convertToPercentage(prev.lowest, newTotalMarks);
+          const medianPct = convertToPercentage(prev.median, newTotalMarks);
+          const avgPct = convertToPercentage(prev.average, newTotalMarks);
+          
+          return {
+            ...prev,
+            totalPossibleMarks: newTotalMarks,
+            highestPercentage: highestPct,
+            lowestPercentage: lowestPct,
+            medianPercentage: medianPct,
+            averagePercentage: avgPct
+          };
+        });
       }
     } catch (error) {
       console.error("Error fetching marking scheme:", error);
@@ -207,7 +244,7 @@ const AssignmentReportPage = () => {
       .get(`/api/assignment/${assignmentId}/report/`)
       .then((res) => {
         const { grades, highest, lowest, median, average, passed, failed, totalMarks } = res.data;
-        setGrades(grades);
+        setRawGrades(grades); // Store raw grades from API
         
         // Use totalMarks from response or keep existing value
         const totalPossibleMarks = totalMarks || statistics.totalPossibleMarks;
@@ -215,16 +252,26 @@ const AssignmentReportPage = () => {
         // Calculate standard deviation on original scores
         const stdDev = calculateStandardDeviation(grades, average);
         
-        // Convert values to percentages if needed
+        // Calculate normalized percentage values
+        const highestPct = convertToPercentage(highest, totalPossibleMarks);
+        const lowestPct = convertToPercentage(lowest, totalPossibleMarks);
+        const medianPct = convertToPercentage(median, totalPossibleMarks);
+        const avgPct = convertToPercentage(average, totalPossibleMarks);
+        
+        // Update statistics with both raw and percentage values
         setStatistics({ 
-          highest: convertToPercentage(highest, totalPossibleMarks), 
-          lowest: convertToPercentage(lowest, totalPossibleMarks), 
-          median: convertToPercentage(median, totalPossibleMarks), 
-          average: convertToPercentage(average, totalPossibleMarks), 
+          highest, 
+          lowest, 
+          median, 
+          average, 
           passed, 
           failed,
           standardDeviation: stdDev,
-          totalPossibleMarks
+          totalPossibleMarks,
+          highestPercentage: highestPct,
+          lowestPercentage: lowestPct,
+          medianPercentage: medianPct,
+          averagePercentage: avgPct
         });
         
         setLoading(false);
@@ -258,12 +305,8 @@ const AssignmentReportPage = () => {
     });
   };
 
-  // Get letter grade based on score
-  const getLetterGrade = (score: number, totalPossibleMarks: number = 100): string => {
-    // Convert to percentage if needed
-    const percentageScore = convertToPercentage(score, totalPossibleMarks);
-    
-    // Find the grade boundary that matches this percentage
+  // Get letter grade based on PERCENTAGE score (0-100)
+  const getLetterGrade = (percentageScore: number): string => {
     const gradeInfo = GRADE_BOUNDARIES.find(g => 
       percentageScore >= g.min && percentageScore <= g.max
     );
@@ -292,7 +335,7 @@ const AssignmentReportPage = () => {
       // Create workbook and worksheet
       const workbook = XLSX.utils.book_new();
       
-      // Get ranked submissions with percentage scores
+      // Get ranked submissions with both raw and percentage scores
       const rankedSubmissions = getRankedSubmissions();
 
       // Define the data for the statistics sheet
@@ -312,22 +355,23 @@ const AssignmentReportPage = () => {
         [""],
         ["SUMMARY STATISTICS"],
         [""],
-        ["Metric", "Value"],
-        ["Total Submissions", grades.length],
-        ["Highest Score", statistics.highest + "%"],
-        ["Lowest Score", statistics.lowest + "%"],
-        ["Median Score", statistics.median + "%"],
-        ["Average Score", statistics.average.toFixed(2) + "%"],
-        ["Standard Deviation", statistics.standardDeviation.toFixed(2)],
+        ["Metric", "Raw Value", "Percentage"],
+        ["Total Submissions", rawGrades.length, ""],
+        ["Highest Score", statistics.highest, `${statistics.highestPercentage}%`],
+        ["Lowest Score", statistics.lowest, `${statistics.lowestPercentage}%`],
+        ["Median Score", statistics.median, `${statistics.medianPercentage}%`],
+        ["Average Score", statistics.average.toFixed(2), `${statistics.averagePercentage.toFixed(2)}%`],
+        ["Standard Deviation", statistics.standardDeviation.toFixed(2), ""],
         [""],
         ["PERFORMANCE BREAKDOWN"],
         [""],
-        ["Passed Students", statistics.passed],
-        ["Failed Students", statistics.failed],
+        ["Passed Students", statistics.passed, ""],
+        ["Failed Students", statistics.failed, ""],
         [
           "Pass Rate",
-          grades.length
-            ? `${((statistics.passed / grades.length) * 100).toFixed(2)}%`
+          "",
+          rawGrades.length
+            ? `${((statistics.passed / rawGrades.length) * 100).toFixed(2)}%`
             : "0%",
         ],
       ];
@@ -344,7 +388,7 @@ const AssignmentReportPage = () => {
         ...rankedSubmissions.map((submission) => [
           submission.rank,
           submission.file_name,
-          submission.rawScore || submission.score,
+          submission.rawScore,
           submission.score + "%",
           submission.grade,
           submission.score >= passScore ? "PASS" : "FAIL",
@@ -352,7 +396,7 @@ const AssignmentReportPage = () => {
         ]),
       ];
 
-      const scoresWorksheet = XLSX.utils.aoa_to_sheet(scoresData);
+      const scoresWorksheet = XLSX.utils.json_to_sheet(scoresData);
       XLSX.utils.book_append_sheet(workbook, scoresWorksheet, "Scores & Rankings");
 
       // Create grade distribution worksheet
@@ -426,7 +470,7 @@ const AssignmentReportPage = () => {
 
   // Calculate grade distribution for charts
   const getGradeDistributionData = () => {
-    if (!grades.length) return [];
+    if (!normalizedGrades.length) return [];
 
     // Calculate distribution of grades
     const distribution: GradeDistribution[] = GRADE_BOUNDARIES.map(boundary => ({
@@ -446,7 +490,7 @@ const AssignmentReportPage = () => {
 
     // Calculate percentages
     distribution.forEach(item => {
-      item.percentage = (item.count / grades.length) * 100;
+      item.percentage = (item.count / normalizedGrades.length) * 100;
     });
 
     // Filter out grades with zero count for cleaner visualization
@@ -481,23 +525,24 @@ const AssignmentReportPage = () => {
 
   // Generate ranked submissions with percentiles
   const getRankedSubmissions = (): SubmissionWithRank[] => {
-    // Clone and sort grades in descending order
-    const sortedGrades = [...grades].sort((a, b) => b - a);
+    if (rawGrades.length === 0 || normalizedGrades.length === 0) {
+      return [];
+    }
+    
+    // Clone and sort normalized grades in descending order
+    const sortedGrades = [...normalizedGrades].sort((a, b) => b - a);
     
     // Create array of submission objects with ranks
-    const submissions: SubmissionWithRank[] = grades.map((score, index) => {
-      // Convert raw score to percentage
-      const percentageScore = convertToPercentage(score, statistics.totalPossibleMarks);
-      
+    const submissions: SubmissionWithRank[] = normalizedGrades.map((percentageScore, index) => {
       // Find position in sorted array (0-based)
-      const position = sortedGrades.indexOf(score);
+      const position = sortedGrades.indexOf(percentageScore);
       // Find scores with same value to handle ties
-      const tiedScores = sortedGrades.filter(s => s === score);
+      const tiedScores = sortedGrades.filter(s => s === percentageScore);
       // Calculate rank with ties
-      const rank = sortedGrades.findIndex(s => s === score) + 1;
+      const rank = sortedGrades.findIndex(s => s === percentageScore) + 1;
       // Calculate percentile (percentage of scores below this score)
-      const scoresBelow = grades.filter(s => s < score).length;
-      const percentile = (scoresBelow / grades.length) * 100;
+      const scoresBelow = normalizedGrades.filter(s => s < percentageScore).length;
+      const percentile = (scoresBelow / normalizedGrades.length) * 100;
       
       // Get file name from files array if available, otherwise use a default
       const fileInfo = files.find((f, i) => i === index);
@@ -506,9 +551,9 @@ const AssignmentReportPage = () => {
       return {
         id: Math.random(), // Just for rendering purposes
         file_name: fileName,
-        score: percentageScore, // Use percentage score
-        rawScore: score, // Keep original raw score
-        grade: getLetterGrade(score, statistics.totalPossibleMarks),
+        rawScore: rawGrades[index], // Keep original raw score
+        score: percentageScore, // Use normalized percentage score
+        grade: getLetterGrade(percentageScore),
         rank,
         percentile,
         status: percentageScore >= passScore ? "pass" : "fail"
@@ -551,14 +596,14 @@ const AssignmentReportPage = () => {
   const getPerformanceChartData = () => {
     // Filter submissions based on current filter
     const filteredSubmissions = getFilteredSubmissions();
-    const scores = filteredSubmissions.map(s => s.score);
+    const scores = filteredSubmissions.map(s => s.score); // Using normalized scores
     const labels = filteredSubmissions.map(s => s.file_name);
     
     return {
       labels,
       datasets: [
         {
-          label: "Scores",
+          label: "Scores (%)",
           data: scores,
           backgroundColor: scores.map((score) =>
             score < passScore ? redColor : purpleColor
@@ -582,8 +627,8 @@ const AssignmentReportPage = () => {
       labels: sortedSubmissions.map(s => s.file_name),
       datasets: [
         {
-          label: "Scores",
-          data: sortedSubmissions.map(s => s.score),
+          label: "Scores (%)",
+          data: sortedSubmissions.map(s => s.score), // Using normalized scores
           borderColor: purpleColorBorder,
           backgroundColor: "transparent",
           pointBackgroundColor: sortedSubmissions.map(s => 
@@ -595,7 +640,7 @@ const AssignmentReportPage = () => {
         },
         {
           label: "Average",
-          data: Array(sortedSubmissions.length).fill(statistics.average),
+          data: Array(sortedSubmissions.length).fill(statistics.averagePercentage),
           borderColor: "rgba(75, 192, 192, 1)",
           borderDash: [5, 5],
           borderWidth: 1,
@@ -765,12 +810,10 @@ const AssignmentReportPage = () => {
                   </div>
                 )}
               </div>
-              {statistics.totalPossibleMarks !== 100 && (
-                <div className="mt-2 text-xs text-gray-500">
-                  <Info className="w-3 h-3 inline mr-1" />
-                  All scores shown as percentages. Total possible marks: {statistics.totalPossibleMarks}
-                </div>
-              )}
+              <div className="mt-2 text-xs text-gray-500">
+                <Info className="w-3 h-3 inline mr-1" />
+                All scores shown in percentages (0-100%). Total possible marks: {statistics.totalPossibleMarks}
+              </div>
             </div>
 
             <div className="mt-4 sm:mt-0 flex items-center">
@@ -834,7 +877,7 @@ const AssignmentReportPage = () => {
                           Submissions
                         </h3>
                         <p className="text-2xl font-bold text-gray-800">
-                          {grades.length}
+                          {rawGrades.length}
                         </p>
                       </div>
                       <div className="bg-purple-100 p-1.5 rounded-md">
@@ -855,9 +898,9 @@ const AssignmentReportPage = () => {
                         </h3>
                         <div className="flex items-center">
                           <p className="text-2xl font-bold text-gray-800">
-                            {statistics.average.toFixed(1)}%
+                            {statistics.averagePercentage.toFixed(1)}%
                           </p>
-                          {statistics.average > passScore ? (
+                          {statistics.averagePercentage > passScore ? (
                             <span className="ml-1 text-green-500">
                               <ArrowUpRight size={16} />
                             </span>
@@ -873,8 +916,8 @@ const AssignmentReportPage = () => {
                       </div>
                     </div>
                     <div className="mt-1 text-xs text-gray-500 flex justify-between">
-                      <span>Median: {statistics.median}%</span>
-                      <span>StdDev: {statistics.standardDeviation.toFixed(1)}</span>
+                      <span>Median: {statistics.medianPercentage}%</span>
+                      <span>Raw Avg: {statistics.average.toFixed(1)}/{statistics.totalPossibleMarks}</span>
                     </div>
                   </div>
 
@@ -886,8 +929,8 @@ const AssignmentReportPage = () => {
                           Pass Rate
                         </h3>
                         <p className="text-2xl font-bold text-gray-800">
-                          {grades.length
-                            ? `${((statistics.passed / grades.length) * 100).toFixed(
+                          {rawGrades.length
+                            ? `${((statistics.passed / rawGrades.length) * 100).toFixed(
                                 0
                               )}%`
                             : "0%"}
@@ -911,7 +954,7 @@ const AssignmentReportPage = () => {
                           Score Range
                         </h3>
                         <p className="text-2xl font-bold text-gray-800">
-                          {statistics.highest}%
+                          {statistics.highestPercentage}%
                         </p>
                       </div>
                       <div className="bg-amber-100 p-1.5 rounded-md">
@@ -919,7 +962,7 @@ const AssignmentReportPage = () => {
                       </div>
                     </div>
                     <div className="mt-1 text-xs text-gray-500">
-                      Min: {statistics.lowest}% • Max: {statistics.highest}%
+                      Min: {statistics.lowestPercentage}% • Max: {statistics.highestPercentage}%
                     </div>
                   </div>
                 </div>
@@ -981,7 +1024,7 @@ const AssignmentReportPage = () => {
                               callbacks: {
                                 label: function (context) {
                                   const count = context.raw as number;
-                                  const total = grades.length;
+                                  const total = rawGrades.length;
                                   const percentage = ((count / total) * 100).toFixed(1);
                                   return `${count} students (${percentage}%)`;
                                 },
@@ -1029,7 +1072,7 @@ const AssignmentReportPage = () => {
                       </div>
                     </div>
                     
-                    {grades.length > 0 ? (
+                    {rawGrades.length > 0 ? (
                       <div className="h-72 flex items-center justify-center">
                         <Doughnut
                           data={doughnutData}
@@ -1051,7 +1094,7 @@ const AssignmentReportPage = () => {
                                 callbacks: {
                                   label: function (context) {
                                     const count = context.raw as number;
-                                    const total = grades.length;
+                                    const total = rawGrades.length;
                                     const percentage = ((count / total) * 100).toFixed(
                                       1
                                     );
@@ -1084,7 +1127,7 @@ const AssignmentReportPage = () => {
                     Score Distribution
                   </h2>
                   
-                  {grades.length > 0 ? (
+                  {normalizedGrades.length > 0 ? (
                     <div className="h-72">
                       <Line
                         data={getScoreTrendData()}
@@ -1098,7 +1141,7 @@ const AssignmentReportPage = () => {
                                   return items[0].label;
                                 },
                                 label: (context) => {
-                                  if (context.dataset.label === "Scores") {
+                                  if (context.dataset.label === "Scores (%)") {
                                     const score = context.raw as number;
                                     return [
                                       `Score: ${score}%`,
@@ -1116,7 +1159,7 @@ const AssignmentReportPage = () => {
                               beginAtZero: true,
                               max: Math.max(
                                 100,
-                                Math.ceil(statistics.highest / 10) * 10
+                                Math.ceil(statistics.highestPercentage / 10) * 10
                               ),
                               title: {
                                 display: true,
@@ -1176,7 +1219,7 @@ const AssignmentReportPage = () => {
                         ).length;
                         
                         // Calculate percentage
-                        const percentage = grades.length > 0 ? (studentsInGrade / grades.length) * 100 : 0;
+                        const percentage = normalizedGrades.length > 0 ? (studentsInGrade / normalizedGrades.length) * 100 : 0;
                         
                         return (
                           <div 
@@ -1251,7 +1294,7 @@ const AssignmentReportPage = () => {
                               callbacks: {
                                 label: function (context) {
                                   const count = context.raw as number;
-                                  const total = grades.length;
+                                  const total = normalizedGrades.length;
                                   const percentage = ((count / total) * 100).toFixed(1);
                                   return `${count} students (${percentage}%)`;
                                 },
@@ -1294,7 +1337,7 @@ const AssignmentReportPage = () => {
                       Grade Breakdown
                     </h2>
                     
-                    {grades.length > 0 ? (
+                    {normalizedGrades.length > 0 ? (
                       <div className="h-80 flex items-center justify-center">
                         <Pie
                           data={{
@@ -1328,7 +1371,7 @@ const AssignmentReportPage = () => {
                                 callbacks: {
                                   label: function (context) {
                                     const count = context.raw as number;
-                                    const total = grades.length;
+                                    const total = normalizedGrades.length;
                                     const percentage = ((count / total) * 100).toFixed(1);
                                     const label = context.label as string;
                                     return `${label}: ${count} (${percentage}%)`;
@@ -1361,7 +1404,7 @@ const AssignmentReportPage = () => {
                       File Rankings
                     </h2>
                     <p className="text-sm text-gray-500 mt-1">
-                      Rankings based on {grades.length} submissions with a pass score of {passScore}%
+                      Rankings based on {normalizedGrades.length} submissions with a pass score of {passScore}%
                     </p>
                   </div>
                   
@@ -1417,7 +1460,7 @@ const AssignmentReportPage = () => {
                   </div>
                 </div>
                 
-                {grades.length > 0 ? (
+                {rawGrades.length > 0 ? (
                   <>
                     {/* Rankings Table */}
                     <div className="bg-white shadow-md rounded-lg overflow-hidden border mb-6">
@@ -1432,10 +1475,10 @@ const AssignmentReportPage = () => {
                                 File Name
                               </th>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                {statistics.totalPossibleMarks !== 100 ? "Raw Score" : ""}
+                                Raw Score
                               </th>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Score
+                                Percentage
                               </th>
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Grade
@@ -1488,13 +1531,11 @@ const AssignmentReportPage = () => {
                                     {submission.file_name}
                                   </span>
                                 </td>
-                                {statistics.totalPossibleMarks !== 100 && (
-                                  <td className="px-4 py-3 whitespace-nowrap">
-                                    <span className="text-sm text-gray-700">
-                                      {submission.rawScore}/{statistics.totalPossibleMarks}
-                                    </span>
-                                  </td>
-                                )}
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  <span className="text-sm text-gray-700">
+                                    {submission.rawScore}/{statistics.totalPossibleMarks}
+                                  </span>
+                                </td>
                                 <td className="px-4 py-3 whitespace-nowrap">
                                   <div className="flex items-center">
                                     <div className="mr-2 w-8 h-8 rounded-full flex items-center justify-center text-white font-medium text-sm"
@@ -1622,7 +1663,7 @@ const AssignmentReportPage = () => {
                                   beginAtZero: true,
                                   max: Math.max(
                                     100,
-                                    Math.ceil(statistics.highest / 10) * 10
+                                    Math.ceil(statistics.highestPercentage / 10) * 10
                                   ),
                                   title: {
                                     display: true,
@@ -1653,7 +1694,7 @@ const AssignmentReportPage = () => {
                               labels: getFilteredSubmissions().map(s => s.file_name),
                               datasets: [
                                 {
-                                  label: "Scores",
+                                  label: "Scores (%)",
                                   data: getFilteredSubmissions().map(s => s.score),
                                   borderColor: purpleColorBorder,
                                   backgroundColor: "transparent",
@@ -1664,7 +1705,7 @@ const AssignmentReportPage = () => {
                                 },
                                 {
                                   label: "Average",
-                                  data: Array(getFilteredSubmissions().length).fill(statistics.average),
+                                  data: Array(getFilteredSubmissions().length).fill(statistics.averagePercentage),
                                   borderColor: "rgba(75, 192, 192, 1)",
                                   borderDash: [5, 5],
                                   borderWidth: 1,
@@ -1692,7 +1733,7 @@ const AssignmentReportPage = () => {
                                       return items[0].label;
                                     },
                                     label: (context) => {
-                                      if (context.dataset.label === "Scores") {
+                                      if (context.dataset.label === "Scores (%)") {
                                         const score = context.raw as number;
                                         return [
                                           `Score: ${score}%`,
@@ -1710,7 +1751,7 @@ const AssignmentReportPage = () => {
                                   beginAtZero: true,
                                   max: Math.max(
                                     100,
-                                    Math.ceil(statistics.highest / 10) * 10
+                                    Math.ceil(statistics.highestPercentage / 10) * 10
                                   ),
                                   title: {
                                     display: true,
@@ -1740,7 +1781,7 @@ const AssignmentReportPage = () => {
                       
                       {filterStatus !== "all" && (
                         <div className="mt-3 text-center text-sm text-gray-500">
-                          Showing {getFilteredSubmissions().length} out of {grades.length} submissions 
+                          Showing {getFilteredSubmissions().length} out of {rawGrades.length} submissions 
                           ({filterStatus === "pass" ? "passed only" : "failed only"})
                         </div>
                       )}
